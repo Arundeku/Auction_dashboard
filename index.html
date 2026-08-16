@@ -20,6 +20,10 @@
         .table-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
         .popover-menu { display: none; position: absolute; z-index: 99999; background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); width: 280px; padding: 12px; top: 100%; margin-top: 4px; left: 0; }
+        
+        /* Sidebar Active State Matching Reference */
+        .sidebar-item { transition: all 0.2s ease-in-out; }
+        .sidebar-item.active { background-color: #111827; color: #ffffff; border-radius: 9999px; }
     </style>
 </head>
 <body class="bg-gray-50 flex h-screen font-sans text-sm overflow-hidden" onclick="closeAllPopovers(event)">
@@ -30,22 +34,23 @@
             <h1 class="text-xl font-bold text-gray-800 flex items-center">🏢 allauctions</h1>
         </div>
         
-        <nav class="flex-1 p-4 space-y-2 text-gray-600 overflow-y-auto">
-            <button type="button" onclick="switchView('dashboard-view', 'nav-dashboard')" id="nav-dashboard" class="w-full text-left block p-2.5 rounded-lg font-medium text-blue-600 bg-blue-50 transition-colors">
-                📊 Dashboard Insights
+        <nav class="flex-1 p-4 space-y-1 text-gray-600 overflow-y-auto">
+            <button type="button" onclick="switchView('dashboard-view', 'nav-dashboard')" id="nav-dashboard" class="sidebar-item w-full text-left block px-4 py-2.5 rounded-lg font-medium">
+                📊 Overview
             </button>
             
+            <!-- Auctions Dropdown -->
             <div>
-                <button type="button" onclick="toggleSidebarDropdown(event)" class="w-full text-left flex justify-between items-center p-2.5 rounded-lg hover:bg-gray-100 font-medium text-gray-700 transition-colors">
+                <button type="button" onclick="toggleSidebarDropdown(event)" class="w-full text-left flex justify-between items-center px-4 py-2.5 rounded-lg hover:bg-gray-100 font-medium text-gray-700 transition-colors">
                     <span>📑 Auctions</span>
                     <svg id="dropdown-arrow" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
                 
-                <div id="auctions-menu" class="dropdown-content ml-4 mt-1 space-y-1">
-                    <button type="button" onclick="switchView('auctions-view', 'nav-all')" id="nav-all" class="w-full text-left block p-2 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors">List: All Auctions</button>
-                    <button type="button" onclick="switchView('auctions-view', 'nav-fav')" id="nav-fav" class="w-full text-left block p-2 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors">⭐ Favourites</button>
-                    <button type="button" onclick="switchView('auctions-view', 'nav-wip')" id="nav-wip" class="w-full text-left block p-2 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors">⏳ WIP</button>
-                    <button type="button" onclick="switchView('auctions-view', 'nav-rej')" id="nav-rej" class="w-full text-left block p-2 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors">🚫 Rejected</button>
+                <div id="auctions-menu" class="dropdown-content ml-4 mt-1 space-y-1 open">
+                    <button type="button" onclick="switchView('auctions-view', 'nav-all')" id="nav-all" class="sidebar-item w-full text-left block px-4 py-2 rounded-lg text-sm font-medium active">📑 All Auctions</button>
+                    <button type="button" onclick="switchView('auctions-view', 'nav-fav')" id="nav-fav" class="sidebar-item w-full text-left block px-4 py-2 rounded-lg text-sm font-medium">⭐ Favourites</button>
+                    <button type="button" onclick="switchView('auctions-view', 'nav-wip')" id="nav-wip" class="sidebar-item w-full text-left block px-4 py-2 rounded-lg text-sm font-medium">⏳ Work In Progress</button>
+                    <button type="button" onclick="switchView('auctions-view', 'nav-rej')" id="nav-rej" class="sidebar-item w-full text-left block px-4 py-2 rounded-lg text-sm font-medium">🚫 Rejected</button>
                 </div>
             </div>
         </nav>
@@ -54,13 +59,13 @@
     <!-- MAIN AREA -->
     <main class="flex-1 flex flex-col h-full overflow-hidden bg-gray-50/50">
         <header class="bg-white border-b border-gray-200 p-5 flex justify-between items-center flex-shrink-0">
-            <h2 id="page-title" class="text-xl font-bold text-gray-800">System Insights</h2>
+            <h2 id="page-title" class="text-xl font-bold text-gray-800">All Auctions</h2>
         </header>
 
         <div class="p-6 flex-1 overflow-y-auto flex flex-col">
             
             <!-- VIEW 1: DASHBOARD INSIGHTS -->
-            <div id="dashboard-view" class="block h-full">
+            <div id="dashboard-view" class="hidden h-full">
                 <h3 class="text-lg font-semibold text-gray-700 mb-4">Pipeline Overview</h3>
                 <div class="grid grid-cols-4 gap-4 mb-6">
                     <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col items-center">
@@ -83,22 +88,22 @@
             </div>
 
             <!-- VIEW 2: AUCTIONS TABLE -->
-            <div id="auctions-view" class="hidden h-full flex flex-col">
+            <div id="auctions-view" class="block h-full flex flex-col">
                 
                 <!-- MULTI-FILTER BAR -->
                 <div class="flex flex-col gap-3 mb-4 flex-shrink-0" style="overflow: visible !important;">
                     <div class="flex gap-3 items-center relative" style="overflow: visible !important;">
                         
                         <!-- Search Bar -->
-                        <div class="relative w-1/4 min-w-[200px]">
+                        <div class="relative w-1/5 min-w-[180px]">
                             <input type="text" id="searchInput" oninput="updateTextSearch(this.value)" placeholder="Search ID or Area..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm bg-white">
                             <span class="absolute left-3 top-2 text-gray-400">🔍</span>
                         </div>
                         
                         <!-- 1. BANKS FILTER -->
                         <div class="relative">
-                            <button type="button" onclick="toggleCustomPopover(event, 'bankPopover')" class="flex items-center justify-between w-40 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
-                                <span class="font-medium text-gray-700 pointer-events-none">All Banks</span>
+                            <button type="button" onclick="toggleCustomPopover(event, 'bankPopover')" class="flex items-center justify-between w-36 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
+                                <span class="font-medium text-gray-700 pointer-events-none">Banks</span>
                                 <svg class="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                             </button>
                             <div id="bankPopover" class="popover-menu" onclick="event.stopPropagation()">
@@ -109,8 +114,8 @@
 
                         <!-- 2. PROPERTY TYPE FILTER -->
                         <div class="relative">
-                            <button type="button" onclick="toggleCustomPopover(event, 'typePopover')" class="flex items-center justify-between w-44 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
-                                <span class="font-medium text-gray-700 pointer-events-none">Property Type</span>
+                            <button type="button" onclick="toggleCustomPopover(event, 'typePopover')" class="flex items-center justify-between w-36 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
+                                <span class="font-medium text-gray-700 pointer-events-none">Type</span>
                                 <svg class="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                             </button>
                             <div id="typePopover" class="popover-menu" onclick="event.stopPropagation()">
@@ -119,14 +124,30 @@
                             </div>
                         </div>
 
-                        <!-- 3. STATUS FILTER -->
+                        <!-- 3. ZONE FILTER (North, East, South, West) -->
                         <div class="relative">
-                            <button type="button" onclick="toggleCustomPopover(event, 'statusPopover')" class="flex items-center justify-between w-36 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
+                            <button type="button" onclick="toggleCustomPopover(event, 'zonePopover')" class="flex items-center justify-between w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
+                                <span class="font-medium text-gray-700 pointer-events-none">Zone</span>
+                                <svg class="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div id="zonePopover" class="popover-menu" onclick="event.stopPropagation()">
+                                <div class="max-h-44 overflow-y-auto space-y-1 text-xs">
+                                    <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="North" onchange="handleCheckboxChange('zones', 'North', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>North</span></label>
+                                    <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="South" onchange="handleCheckboxChange('zones', 'South', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>South</span></label>
+                                    <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="East" onchange="handleCheckboxChange('zones', 'East', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>East</span></label>
+                                    <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="West" onchange="handleCheckboxChange('zones', 'West', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>West</span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. STATUS FILTER -->
+                        <div class="relative">
+                            <button type="button" onclick="toggleCustomPopover(event, 'statusPopover')" class="flex items-center justify-between w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
                                 <span class="font-medium text-gray-700 pointer-events-none">Status</span>
                                 <svg class="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                             </button>
                             <div id="statusPopover" class="popover-menu" onclick="event.stopPropagation()">
-                                <div id="statusList" class="max-h-44 overflow-y-auto space-y-1 text-xs">
+                                <div class="max-h-44 overflow-y-auto space-y-1 text-xs">
                                     <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="Active" onchange="handleCheckboxChange('statuses', 'Active', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>Active</span></label>
                                     <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="Urgent" onchange="handleCheckboxChange('statuses', 'Urgent', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>Urgent</span></label>
                                     <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="Expired" onchange="handleCheckboxChange('statuses', 'Expired', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>Expired</span></label>
@@ -134,33 +155,9 @@
                             </div>
                         </div>
 
-                        <!-- 4. DATE RANGE DROPDOWN -->
-                        <div class="relative">
-                            <button type="button" onclick="toggleCustomPopover(event, 'datePopover')" class="flex items-center justify-between w-36 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
-                                <span class="font-medium text-gray-700 pointer-events-none">Date Range</span>
-                                <svg class="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </button>
-                            <div id="datePopover" class="popover-menu" style="width: 280px;" onclick="event.stopPropagation()">
-                                <div class="flex gap-1 mb-2">
-                                    <button type="button" onclick="setDatePreset('week')" class="px-2 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded text-[11px] font-medium">This Week</button>
-                                    <button type="button" onclick="setDatePreset('month')" class="px-2 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded text-[11px] font-medium">This Month</button>
-                                    <button type="button" onclick="setDatePreset('quarter')" class="px-2 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded text-[11px] font-medium">This Quarter</button>
-                                </div>
-                                <div class="text-xs font-bold text-gray-600 mb-1">Custom Range</div>
-                                <div class="grid grid-cols-2 gap-2 mb-2">
-                                    <div><label class="text-[10px] text-gray-500">From</label><input type="date" id="dateFrom" class="w-full px-2 py-1 border border-gray-200 rounded text-xs"></div>
-                                    <div><label class="text-[10px] text-gray-500">To</label><input type="date" id="dateTo" class="w-full px-2 py-1 border border-gray-200 rounded text-xs"></div>
-                                </div>
-                                <div class="flex justify-between items-center pt-2 border-t border-gray-100">
-                                    <button type="button" onclick="clearDateFilter()" class="text-xs text-gray-500 hover:text-red-500">Clear</button>
-                                    <button type="button" onclick="applyDateFilter()" class="px-3 py-1 bg-slate-800 text-white rounded text-xs font-medium hover:bg-slate-900">Apply</button>
-                                </div>
-                            </div>
-                        </div>
-
                         <!-- 5. SORT BY PRICE -->
-                        <select id="sortSelect" onchange="updateSort(this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white shadow-sm max-w-[150px] cursor-pointer">
-                            <option value="none">Sort by Price</option>
+                        <select id="sortSelect" onchange="updateSort(this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white shadow-sm max-w-[140px] cursor-pointer">
+                            <option value="none">Sort Price</option>
                             <option value="asc">Low to High</option>
                             <option value="desc">High to Low</option>
                         </select>
@@ -182,7 +179,7 @@
                                     <th class="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Auction ID</th>
                                     <th class="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Reserve Price</th>
                                     <th class="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Auction Date</th>
-                                    <th class="px-4 py-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Action</th>
+                                    <th class="px-4 py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider w-36">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="table-body" class="bg-white divide-y divide-gray-100">
@@ -194,7 +191,7 @@
             </div>
 
             <!-- VIEW 3: PROPERTY DETAIL & MAP VIEW -->
-            <div id="detail-view" class="hidden h-full flex flex-col overflow-y-auto">
+            <div id="detail-view" class="hidden h-full flex flex-col overflow-y-auto pr-2">
                 <div class="mb-4 flex items-center justify-between">
                     <button type="button" onclick="backToAuctions()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
                         ← Back to List
@@ -202,21 +199,22 @@
                     <h3 id="detail-title" class="text-lg font-bold text-gray-800">Property Details</h3>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-                    <!-- Left: All Details from Google Sheet -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm space-y-4">
                         <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2">Spreadsheet Attributes</h4>
-                        <div id="detail-attributes" class="grid grid-cols-2 gap-4 text-sm">
-                            <!-- Injected dynamically -->
-                        </div>
+                        <div id="detail-attributes" class="grid grid-cols-2 gap-4 text-sm"></div>
                     </div>
 
-                    <!-- Right: Interactive Map -->
                     <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-col">
                         <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2 mb-4">Geographic Location</h4>
                         <div id="propertyMap" class="w-full flex-1 min-h-[350px] rounded-lg border border-gray-200"></div>
                         <p class="text-xs text-gray-400 mt-2 text-center">💡 Scroll to zoom and inspect the area via OpenStreetMap</p>
                     </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm mb-6">
+                    <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2 mb-3">Property Description</h4>
+                    <p id="detail-description" class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">N/A</p>
                 </div>
             </div>
 
@@ -232,15 +230,45 @@
         const API_URL = "https://script.google.com/macros/s/AKfycbxcyMV25BVns8N1rMXcQuH8RpfvKeqfK-wvpcHDXklnJeIh2Bomb15ZY10rGAdllYVk/exec";
 
         let globalAuctionData = []; 
+        
+        // Load persisted states from localStorage
+        let userFavorites = new Set(JSON.parse(localStorage.getItem('auction_favorites') || '[]'));
+        let userWip = new Set(JSON.parse(localStorage.getItem('auction_wip') || '[]'));
+        let userRejected = new Set(JSON.parse(localStorage.getItem('auction_rejected') || '[]'));
+        
+        let currentSubView = 'nav-all';
+
         let activeFilters = { 
             text: "", 
             banks: new Set(), 
-            types: new Set(), 
+            categories: new Set(), 
             statuses: new Set(),
-            dateRange: null, 
+            zones: new Set(),
             sort: "none" 
         };
         let currentMapInstance = null;
+
+        function savePersistentStates() {
+            localStorage.setItem('auction_favorites', JSON.stringify([...userFavorites]));
+            localStorage.setItem('auction_wip', JSON.stringify([...userWip]));
+            localStorage.setItem('auction_rejected', JSON.stringify([...userRejected]));
+        }
+
+        // Smart Zone Classifier based on Bengaluru Area Names
+        function getZoneForArea(areaName) {
+            if (!areaName) return "Central";
+            let name = areaName.toLowerCase();
+            const north = ["yelahanka", "hebbal", "rt nagar", "sadashivanagar", "jalahalli", "manyata", "vidyaranyapura", "hesaraghatta", "peenya", "mathikere"];
+            const south = ["jayanagar", "jp nagar", "banashankari", "btm layout", "bannerghatta", "kumaraswamy layout", "padmanabhanagar", "kanakapura"];
+            const east = ["indiranagar", "whitefield", "marathahalli", "kr puram", "halasuru", "ulsoor", "cv raman nagar", "brookefield", "mahadevapura", "bellandur", "varthur", "sarjapur"];
+            const west = ["rajajinagar", "malleshwaram", "basavanagudi", "chamrajpet", "vijayanagar", "nayandahalli", "magadi", "kengeri", "nandini layout", "mahalakshmi layout"];
+
+            if (north.some(zone => name.includes(zone))) return "North";
+            if (south.some(zone => name.includes(zone))) return "South";
+            if (east.some(zone => name.includes(zone))) return "East";
+            if (west.some(zone => name.includes(zone))) return "West";
+            return "Central";
+        }
 
         function toggleSidebarDropdown(e) {
             e.stopPropagation();
@@ -283,46 +311,39 @@
             
             if(viewId === 'detail-view') return;
 
-            const buttons = ['nav-dashboard', 'nav-all', 'nav-fav', 'nav-wip', 'nav-rej'];
-            buttons.forEach(id => {
-                const btn = document.getElementById(id);
-                if(btn) {
-                    btn.classList.remove('text-blue-600', 'bg-blue-50');
-                    btn.classList.add('text-gray-600');
-                }
-            });
+            currentSubView = buttonId;
             
+            // Sidebar Active State Update
+            document.querySelectorAll('.sidebar-item').forEach(btn => btn.classList.remove('active'));
             const activeBtn = document.getElementById(buttonId);
-            if(activeBtn) {
-                activeBtn.classList.remove('text-gray-600');
-                activeBtn.classList.add('text-blue-600', 'bg-blue-50');
-            }
+            if(activeBtn) activeBtn.classList.add('active');
 
             const titleMap = {
-                'nav-dashboard': 'System Insights',
+                'nav-dashboard': 'Overview',
                 'nav-all': 'All Auctions',
-                'nav-fav': 'Favourite Properties',
+                'nav-fav': 'Favourites',
                 'nav-wip': 'Work In Progress',
-                'nav-rej': 'Rejected Properties'
+                'nav-rej': 'Rejected'
             };
             const titleEl = document.getElementById('page-title');
             if(titleEl && titleMap[buttonId]) titleEl.innerText = titleMap[buttonId];
+
+            applyFilters();
         }
 
         function backToAuctions() {
-            switchView('auctions-view', 'nav-all');
+            switchView('auctions-view', currentSubView);
         }
 
         function parseCustomDate(dateStr) {
             if (!dateStr || dateStr === "Not Found" || String(dateStr).trim() === "") return { dateObj: null, dateStr: "Unknown", timeStr: "-" };
-            let d, m, y, timeStr = "-";
+            let d, m, y;
             let strDate = String(dateStr);
             if (strDate.includes("T")) {
                 let dateParts = strDate.split("T")[0].split("-");
                 d = parseInt(dateParts[1]); 
                 m = parseInt(dateParts[2]) - 1; 
                 y = parseInt(dateParts[0]); 
-                timeStr = new Date(strDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
             } else {
                 let cleanStr = strDate.replace(/-/g, '/'); 
                 let splitSpace = cleanStr.split(" ");
@@ -332,11 +353,10 @@
                     m = parseInt(dateParts[1]) - 1;
                     y = parseInt(dateParts[2]);
                 }
-                if (splitSpace.length > 1) timeStr = splitSpace.slice(1).join(" ");
             }
             let finalDate = new Date(y, m, d);
             let displayDate = isNaN(finalDate.getTime()) ? strDate : finalDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-            return { dateObj: finalDate, dateStr: displayDate, timeStr: timeStr };
+            return { dateObj: finalDate, dateStr: displayDate };
         }
 
         function getStatusString(dateObj) {
@@ -350,7 +370,7 @@
 
         function populateDropdowns(data) {
             let banks = [...new Set(data.map(item => item["Bank Name"]).filter(Boolean))].sort();
-            let types = [...new Set(data.map(item => item["Property Type"]).filter(Boolean))].sort();
+            let categories = [...new Set(data.map(item => item["Property Type"]).filter(Boolean))].sort();
 
             const bankList = document.getElementById("bankList");
             bankList.innerHTML = "";
@@ -361,12 +381,12 @@
                 </label>`;
             });
 
-            const typeList = document.getElementById("typeList");
-            typeList.innerHTML = "";
-            types.forEach(t => {
-                typeList.innerHTML += `<label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
-                    <input type="checkbox" value="${t}" onchange="handleCheckboxChange('types', '${t.replace(/'/g, "\\\\'")}', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                    <span class="text-gray-700 truncate">${t}</span>
+            const catList = document.getElementById("typeList");
+            catList.innerHTML = "";
+            categories.forEach(c => {
+                catList.innerHTML += `<label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
+                    <input type="checkbox" value="${c}" onchange="handleCheckboxChange('categories', '${c.replace(/'/g, "\\\\'")}', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <span class="text-gray-700 truncate">${c}</span>
                 </label>`;
             });
         }
@@ -389,51 +409,10 @@
             applyFilters();
         }
 
-        function setDatePreset(preset) {
-            const now = new Date();
-            let from = new Date(), to = new Date();
-            if (preset === 'week') {
-                let day = now.getDay();
-                from.setDate(now.getDate() - day);
-                to.setDate(from.getDate() + 6);
-            } else if (preset === 'month') {
-                from = new Date(now.getFullYear(), now.getMonth(), 1);
-                to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            } else if (preset === 'quarter') {
-                let quarter = Math.floor(now.getMonth() / 3);
-                from = new Date(now.getFullYear(), quarter * 3, 1);
-                to = new Date(now.getFullYear(), quarter * 3 + 3, 0);
-            }
-            document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
-            document.getElementById('dateTo').value = to.toISOString().split('T')[0];
-        }
-
-        function applyDateFilter() {
-            const from = document.getElementById('dateFrom').value;
-            const to = document.getElementById('dateTo').value;
-            if (from && to) {
-                activeFilters.dateRange = { from: new Date(from), to: new Date(to) };
-                renderFilterTags();
-                applyFilters();
-                document.getElementById('datePopover').style.display = 'none';
-            }
-        }
-
-        function clearDateFilter() {
-            document.getElementById('dateFrom').value = '';
-            document.getElementById('dateTo').value = '';
-            activeFilters.dateRange = null;
-            renderFilterTags();
-            applyFilters();
-        }
-
         function removeMultiFilter(type, value) {
             if (type === 'sort') {
                 activeFilters.sort = 'none';
                 document.getElementById('sortSelect').value = 'none';
-            } else if (type === 'dateRange') {
-                activeFilters.dateRange = null;
-                clearDateFilter();
             } else {
                 activeFilters[type].delete(value);
                 document.querySelectorAll(`input[type="checkbox"][value="${value}"]`).forEach(cb => cb.checked = false);
@@ -444,12 +423,11 @@
 
         function clearAllFilters() {
             activeFilters.banks.clear();
-            activeFilters.types.clear();
+            activeFilters.categories.clear();
             activeFilters.statuses.clear();
-            activeFilters.dateRange = null;
+            activeFilters.zones.clear();
             activeFilters.sort = "none";
             document.getElementById('sortSelect').value = "none";
-            clearDateFilter();
             document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
             renderFilterTags();
             applyFilters();
@@ -460,18 +438,12 @@
             container.innerHTML = "";
             let hasTags = false;
 
-            ['banks', 'types', 'statuses'].forEach(type => {
+            ['banks', 'categories', 'statuses', 'zones'].forEach(type => {
                 activeFilters[type].forEach(val => {
                     container.innerHTML += createTagHtml(type, val, val);
                     hasTags = true;
                 });
             });
-
-            if (activeFilters.dateRange) {
-                let label = `Date: ${activeFilters.dateRange.from.toLocaleDateString()} - ${activeFilters.dateRange.to.toLocaleDateString()}`;
-                container.innerHTML += createTagHtml('dateRange', 'range', label);
-                hasTags = true;
-            }
 
             if (activeFilters.sort !== "none") {
                 let label = activeFilters.sort === 'asc' ? 'Price: Low to High' : 'Price: High to Low';
@@ -497,7 +469,25 @@
             </div>`;
         }
 
-        // --- OPEN DETAIL VIEW WITH MAP ---
+        function toggleAction(e, auctionId, actionType) {
+            e.stopPropagation();
+            let idStr = String(auctionId);
+            
+            if (actionType === 'fav') {
+                if (userFavorites.has(idStr)) userFavorites.delete(idStr);
+                else userFavorites.add(idStr);
+            } else if (actionType === 'wip') {
+                if (userWip.has(idStr)) userWip.delete(idStr);
+                else userWip.add(idStr);
+            } else if (actionType === 'rej') {
+                if (userRejected.has(idStr)) userRejected.delete(idStr);
+                else userRejected.add(idStr);
+            }
+            
+            savePersistentStates();
+            applyFilters();
+        }
+
         async function openPropertyDetail(auctionId) {
             const property = globalAuctionData.find(row => String(row["Auction ID"]) === String(auctionId));
             if (!property) return;
@@ -505,10 +495,10 @@
             switchView('detail-view', '');
             document.getElementById('page-title').innerText = `Auction #${auctionId} Details`;
 
-            // Populate attributes
             const attrContainer = document.getElementById('detail-attributes');
             attrContainer.innerHTML = "";
             for (let [key, val] of Object.entries(property)) {
+                if (key.toLowerCase() === 'description' || key.toLowerCase() === 'source url') continue;
                 attrContainer.innerHTML += `
                     <div class="border-b pb-2">
                         <span class="block text-xs font-semibold text-gray-400 uppercase">${key}</span>
@@ -517,9 +507,20 @@
                 `;
             }
 
-            // Render OpenStreetMap
+            const sourceUrl = property["Source URL"] || "#";
+            attrContainer.innerHTML += `
+                <div class="border-b pb-2 col-span-2">
+                    <span class="block text-xs font-semibold text-gray-400 uppercase">Source Listing</span>
+                    <a href="${sourceUrl}" target="_blank" class="text-blue-600 hover:underline font-medium inline-flex items-center gap-1">
+                        🔗 Open Listing Source
+                    </a>
+                </div>
+            `;
+
+            document.getElementById('detail-description').innerText = property["Description"] || "No description provided.";
+
             const areaTown = property["Area / Town"] || "Bengaluru";
-            let lat = 12.9716, lng = 77.5946; // Default Bengaluru center
+            let lat = 12.9716, lng = 77.5946; 
 
             try {
                 let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(areaTown + ", Bengaluru, Karnataka, India")}`);
@@ -529,25 +530,17 @@
                     lng = parseFloat(data[0].lon);
                 }
             } catch (e) {
-                console.error("Geocoding lookup failed, defaulting to central coordinates.");
+                console.error("Geocoding lookup failed.");
             }
 
             setTimeout(() => {
-                if (currentMapInstance) {
-                    currentMapInstance.remove();
-                }
+                if (currentMapInstance) currentMapInstance.remove();
                 currentMapInstance = L.map('propertyMap').setView([lat, lng], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(currentMapInstance);
-                L.marker([lat, lng]).addTo(currentMapInstance)
-                    .bindPopup(`<b>#${auctionId}</b><br>${areaTown}`)
-                    .openPopup();
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(currentMapInstance);
+                L.marker([lat, lng]).addTo(currentMapInstance);
             }, 100);
         }
 
-        // --- TABLE RENDERING ---
         function renderTable(dataToRender) {
             const tableBody = document.getElementById("table-body");
             tableBody.innerHTML = ""; 
@@ -560,6 +553,7 @@
             dataToRender.forEach(row => {
                 const parsedData = parseCustomDate(row["Auction Start Date"]);
                 const statusStr = getStatusString(parsedData.dateObj);
+                const auctionId = String(row["Auction ID"]);
                 
                 let statusHtml = "";
                 if (statusStr === "Expired") statusHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold badge-expired">Expired</span>`;
@@ -570,22 +564,34 @@
                 let rawPrice = String(row["Reserve Price"] || "0").replace(/[^0-9.-]+/g, "");
                 let formattedPrice = rawPrice > 0 ? "₹" + Number(rawPrice).toLocaleString('en-IN') : "Price Not Listed";
 
+                const isFav = userFavorites.has(auctionId);
+                const isWip = userWip.has(auctionId);
+                const isRej = userRejected.has(auctionId);
+
                 const tr = document.createElement("tr");
                 tr.className = "hover:bg-blue-50/40 transition-colors cursor-pointer group";
-                tr.onclick = () => openPropertyDetail(row["Auction ID"]);
+                tr.onclick = () => openPropertyDetail(auctionId);
                 
                 tr.innerHTML = `
-                    <td class="px-4 py-1.5 whitespace-nowrap">${statusHtml}</td>
-                    <td class="px-4 py-1.5 whitespace-nowrap text-gray-800">${row["Property Type"] || "N/A"}</td>
-                    <td class="px-4 py-1.5 whitespace-nowrap text-gray-600">${row["Area / Town"] || "Unknown"}</td>
-                    <td class="px-4 py-1.5 whitespace-nowrap font-medium text-gray-900">#${row["Auction ID"] || "N/A"}</td>
-                    <td class="px-4 py-1.5 whitespace-nowrap font-bold text-gray-800">${formattedPrice}</td>
-                    <td class="px-4 py-1.5 whitespace-nowrap">
-                        <span class="text-gray-800">${parsedData.dateStr}</span>
-                        <span class="text-xs text-gray-400 ml-1">${parsedData.timeStr !== "-" ? parsedData.timeStr : ""}</span>
-                    </td>
-                    <td class="px-4 py-1.5 whitespace-nowrap text-right text-gray-400 group-hover:text-blue-600">
-                        <svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    <td class="px-4 py-2 whitespace-nowrap">${statusHtml}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-gray-800">${row["Property Type"] || "N/A"}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-gray-600">${row["Area / Town"] || "Unknown"}</td>
+                    <td class="px-4 py-2 whitespace-nowrap font-medium text-gray-900">#${auctionId || "N/A"}</td>
+                    <td class="px-4 py-2 whitespace-nowrap font-bold text-gray-800">${formattedPrice}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-gray-800">${parsedData.dateStr}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-center space-x-3">
+                        <!-- WIP Clipboard Icon -->
+                        <button type="button" onclick="toggleAction(event, '${auctionId}', 'wip')" title="Work In Progress" class="outline-none transition-transform hover:scale-110">
+                            <svg class="w-5 h-5 inline-block ${isWip ? 'text-amber-500 fill-amber-500' : 'text-gray-300 hover:text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012-2m-6 9l2 2 4-4"></path></svg>
+                        </button>
+                        <!-- Fav Star Icon -->
+                        <button type="button" onclick="toggleAction(event, '${auctionId}', 'fav')" title="Favourite" class="outline-none transition-transform hover:scale-110">
+                            <svg class="w-5 h-5 inline-block ${isFav ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
+                        </button>
+                        <!-- Rejected Ban Icon -->
+                        <button type="button" onclick="toggleAction(event, '${auctionId}', 'rej')" title="Rejected" class="outline-none transition-transform hover:scale-110">
+                            <svg class="w-5 h-5 inline-block ${isRej ? 'text-red-500 fill-red-500' : 'text-gray-300 hover:text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-12.728 12.728m0-12.728l12.728 12.728M12 2a10 10 0 110 20 10 10 0 010-20z"></path></svg>
+                        </button>
                     </td>
                 `;
                 tableBody.appendChild(tr);
@@ -594,33 +600,34 @@
 
         function applyFilters() {
             let filteredData = globalAuctionData.filter(row => {
-                const searchString = String(row["Area / Town"] + " " + row["Auction ID"]).toLowerCase();
+                const auctionIdStr = String(row["Auction ID"]);
+
+                // Sidebar sub-views filtering based on persistent states
+                if (currentSubView === 'nav-fav' && !userFavorites.has(auctionIdStr)) return false;
+                if (currentSubView === 'nav-wip' && !userWip.has(auctionIdStr)) return false;
+                if (currentSubView === 'nav-rej' && !userRejected.has(auctionIdStr)) return false;
+
+                const searchString = String(row["Area / Town"] + " " + auctionIdStr).toLowerCase();
                 const textMatch = searchString.includes(activeFilters.text);
                 
                 const bankMatch = activeFilters.banks.size === 0 || activeFilters.banks.has(row["Bank Name"]);
-                const typeMatch = activeFilters.types.size === 0 || activeFilters.types.has(row["Property Type"]);
+                const typeMatch = activeFilters.categories.size === 0 || activeFilters.categories.has(row["Property Type"]);
                 
                 const parsed = parseCustomDate(row["Auction Start Date"]);
                 const statusStr = getStatusString(parsed.dateObj);
                 const statusMatch = activeFilters.statuses.size === 0 || activeFilters.statuses.has(statusStr);
                 
-                let dateMatch = true;
-                if (activeFilters.dateRange && row["Auction Start Date"]) {
-                    if (parsed.dateObj) {
-                        dateMatch = parsed.dateObj >= activeFilters.dateRange.from && parsed.dateObj <= activeFilters.dateRange.to;
-                    } else {
-                        dateMatch = false;
-                    }
-                }
+                const zoneStr = getZoneForArea(row["Area / Town"]);
+                const zoneMatch = activeFilters.zones.size === 0 || activeFilters.zones.has(zoneStr);
 
-                return textMatch && bankMatch && typeMatch && statusMatch && dateMatch;
+                return textMatch && bankMatch && typeMatch && statusMatch && zoneMatch;
             });
 
             if (activeFilters.sort !== "none") {
                 filteredData.sort((a, b) => {
                     let valA = Number(String(a["Reserve Price"] || "0").replace(/[^0-9.-]+/g, ""));
                     let valB = Number(String(b["Reserve Price"] || "0").replace(/[^0-9.-]+/g, ""));
-                    return activeFilters.sort === "asc" ? valA - valB : valB - valA;
+                    return activeFilters.sort === 'asc' ? valA - valB : valB - valA;
                 });
             }
 
