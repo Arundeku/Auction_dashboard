@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auction Dashboard</title>
+    <!-- Tailwind CSS for rapid UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .badge-urgent { background-color: #FEE2E2; color: #991B1B; } /* Red */
+        .badge-active { background-color: #DCFCE7; color: #166534; } /* Green */
+        .badge-expired { background-color: #F3F4F6; color: #374151; } /* Gray/Black */
+    </style>
+</head>
+<body class="bg-gray-50 flex h-screen font-sans text-sm">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
+        <div class="p-6 border-b border-gray-200">
+            <h1 class="text-xl font-bold text-gray-800 flex items-center">
+                🏢 allauctions
+            </h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-2 text-gray-600">
+            <a href="#" class="block p-2 rounded hover:bg-gray-100 font-medium text-blue-600 bg-blue-50">🏠 Home</a>
+            <a href="#" class="block p-2 rounded hover:bg-gray-100 font-medium">🏢 Properties</a>
+            <a href="#" class="block p-2 rounded hover:bg-gray-100 font-medium">📈 Sales Primary</a>
+            <a href="#" class="block p-2 rounded hover:bg-gray-100 font-medium">🔄 New Data</a>
+        </nav>
+    </aside>
+
+    <!-- MAIN DASHBOARD -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+            <h2 class="text-2xl font-bold text-gray-800">Primary Dashboard</h2>
+        </header>
+
+        <!-- Content Area -->
+        <div class="p-6 flex-1 overflow-y-auto">
+            
+            <!-- SUMMARY CARDS -->
+            <div class="grid grid-cols-4 gap-4 mb-6">
+                <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col items-center">
+                    <span class="text-gray-500 font-medium">All Properties</span>
+                    <span id="count-all" class="text-3xl font-bold text-blue-600 mt-2">...</span>
+                </div>
+                <div class="bg-white p-4 rounded-lg border border-red-100 shadow-sm flex flex-col items-center bg-red-50">
+                    <span class="text-red-800 font-medium">Urgent (<= 2 Days)</span>
+                    <span id="count-urgent" class="text-3xl font-bold text-red-600 mt-2">...</span>
+                </div>
+                <div class="bg-white p-4 rounded-lg border border-green-100 shadow-sm flex flex-col items-center bg-green-50">
+                    <span class="text-green-800 font-medium">Active</span>
+                    <span id="count-active" class="text-3xl font-bold text-green-600 mt-2">...</span>
+                </div>
+                <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col items-center">
+                    <span class="text-gray-500 font-medium">Expired</span>
+                    <span id="count-expired" class="text-3xl font-bold text-gray-600 mt-2">...</span>
+                </div>
+            </div>
+
+            <!-- DATA TABLE -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID & Bank</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property Type</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reserve Price</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submission Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">Loading live data from Google Sheets...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // PASTE YOUR APPS SCRIPT WEB APP URL HERE
+        // ==========================================
+        const API_URL = "https://script.google.com/macros/s/AKfycbxcyMV25BVns8N1rMXcQuH8RpfvKeqfK-wvpcHDXklnJeIh2Bomb15ZY10rGAdllYVk/exec";
+
+        // Helper to parse Indian Date Formats (DD-MM-YYYY)
+        function parseCustomDate(dateStr) {
+            if (!dateStr || dateStr === "Not Found") return null;
+            let parts = dateStr.match(/(\d{2})-(\d{2})-(\d{4})/);
+            if(parts) {
+                return new Date(parts[3], parts[2] - 1, parts[1]); 
+            }
+            return new Date(dateStr); 
+        }
+
+        async function fetchAuctionData() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                
+                let urgentCount = 0;
+                let activeCount = 0;
+                let expiredCount = 0;
+                
+                const tableBody = document.getElementById("table-body");
+                tableBody.innerHTML = ""; // Clear loading text
+
+                const now = new Date();
+
+                data.forEach(row => {
+                    const submissionDateStr = row["Application Submission Date"];
+                    const subDate = parseCustomDate(submissionDateStr);
+                    
+                    let statusHtml = "";
+                    
+                    // The Delta/Time Math
+                    if (subDate) {
+                        const timeDiff = subDate - now;
+                        const daysDiff = timeDiff / (1000 * 3600 * 24);
+
+                        if (daysDiff < 0) {
+                            statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold badge-expired">⚫ Expired</span>`;
+                            expiredCount++;
+                        } else if (daysDiff <= 2) {
+                            statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold badge-urgent">🔴 Urgent</span>`;
+                            urgentCount++;
+                        } else {
+                            statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold badge-active">🟢 Active</span>`;
+                            activeCount++;
+                        }
+                    } else {
+                        statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold badge-expired">⚪ Unknown</span>`;
+                    }
+
+                    // Format Currency
+                    let formattedPrice = "₹" + Number(row["Reserve Price"] || 0).toLocaleString('en-IN');
+
+                    // Create Row
+                    const tr = document.createElement("tr");
+                    tr.className = "hover:bg-gray-50";
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">${statusHtml}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="font-medium text-gray-900">#${row["Auction ID"]}</div>
+                            <div class="text-gray-500">${row["Bank Name"]}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-700">${row["Property Type"]} <br><span class="text-xs text-gray-400">${row["Area / Town"]}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-800">${formattedPrice}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-600">${submissionDateStr}</td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+
+                // Update Top Cards
+                document.getElementById("count-all").innerText = data.length;
+                document.getElementById("count-urgent").innerText = urgentCount;
+                document.getElementById("count-active").innerText = activeCount;
+                document.getElementById("count-expired").innerText = expiredCount;
+
+            } catch (error) {
+                console.error("Data Fetch Error:", error);
+                document.getElementById("table-body").innerHTML = `<tr><td colspan="5" class="text-center text-red-500">Failed to connect to backend. Check your URL.</td></tr>`;
+            }
+        }
+
+        // Trigger fetch on load
+        fetchAuctionData();
+    </script>
+</body>
+</html>
