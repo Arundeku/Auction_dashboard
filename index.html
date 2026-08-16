@@ -4,168 +4,659 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auction Dashboard</title>
-    <!-- Tailwind CSS for rapid UI styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS for Interactive Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        .badge-urgent { background-color: #FEE2E2; color: #991B1B; } /* Red */
-        .badge-active { background-color: #DCFCE7; color: #166534; } /* Green */
-        .badge-expired { background-color: #F3F4F6; color: #374151; } /* Gray/Black */
+        .badge-urgent { background-color: #FEE2E2; color: #991B1B; }
+        .badge-active { background-color: #DCFCE7; color: #166534; }
+        .badge-expired { background-color: #F3F4F6; color: #374151; }
+        .dropdown-content { transition: max-height 0.3s ease-in-out; overflow: hidden; max-height: 0; }
+        .dropdown-content.open { max-height: 200px; }
+        
+        .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .table-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .popover-menu { display: none; position: absolute; z-index: 99999; background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); width: 280px; padding: 12px; top: 100%; margin-top: 4px; left: 0; }
     </style>
 </head>
-<body class="bg-gray-50 flex h-screen font-sans text-sm">
+<body class="bg-gray-50 flex h-screen font-sans text-sm overflow-hidden" onclick="closeAllPopovers(event)">
 
     <!-- SIDEBAR -->
-    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col h-full flex-shrink-0">
         <div class="p-6 border-b border-gray-200">
-            <h1 class="text-xl font-bold text-gray-800 flex items-center">
-                🏢 allauctions
-            </h1>
+            <h1 class="text-xl font-bold text-gray-800 flex items-center">🏢 allauctions</h1>
         </div>
-        <nav class="flex-1 p-4 space-y-2 text-gray-600">
-            <a href="#" class="block p-2 rounded hover:bg-gray-100 font-medium text-blue-600 bg-blue-50">🏠 Home</a>
-            <a href="#" class="block p-2 rounded hover:bg-gray-100 font-medium">🏢 Properties</a>
-            <a href="#" class="block p-2 rounded hover:bg-gray-100 font-medium">📈 Sales Primary</a>
-            <a href="#" class="block p-2 rounded hover:bg-gray-100 font-medium">🔄 New Data</a>
+        
+        <nav class="flex-1 p-4 space-y-2 text-gray-600 overflow-y-auto">
+            <button type="button" onclick="switchView('dashboard-view', 'nav-dashboard')" id="nav-dashboard" class="w-full text-left block p-2.5 rounded-lg font-medium text-blue-600 bg-blue-50 transition-colors">
+                📊 Dashboard Insights
+            </button>
+            
+            <div>
+                <button type="button" onclick="toggleSidebarDropdown(event)" class="w-full text-left flex justify-between items-center p-2.5 rounded-lg hover:bg-gray-100 font-medium text-gray-700 transition-colors">
+                    <span>📑 Auctions</span>
+                    <svg id="dropdown-arrow" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                
+                <div id="auctions-menu" class="dropdown-content ml-4 mt-1 space-y-1">
+                    <button type="button" onclick="switchView('auctions-view', 'nav-all')" id="nav-all" class="w-full text-left block p-2 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors">List: All Auctions</button>
+                    <button type="button" onclick="switchView('auctions-view', 'nav-fav')" id="nav-fav" class="w-full text-left block p-2 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors">⭐ Favourites</button>
+                    <button type="button" onclick="switchView('auctions-view', 'nav-wip')" id="nav-wip" class="w-full text-left block p-2 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors">⏳ WIP</button>
+                    <button type="button" onclick="switchView('auctions-view', 'nav-rej')" id="nav-rej" class="w-full text-left block p-2 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors">🚫 Rejected</button>
+                </div>
+            </div>
         </nav>
     </aside>
 
-    <!-- MAIN DASHBOARD -->
-    <main class="flex-1 flex flex-col overflow-hidden">
-        <!-- Header -->
-        <header class="bg-white border-b border-gray-200 p-6 flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-gray-800">Primary Dashboard</h2>
+    <!-- MAIN AREA -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-gray-50/50">
+        <header class="bg-white border-b border-gray-200 p-5 flex justify-between items-center flex-shrink-0">
+            <h2 id="page-title" class="text-xl font-bold text-gray-800">System Insights</h2>
         </header>
 
-        <!-- Content Area -->
-        <div class="p-6 flex-1 overflow-y-auto">
+        <div class="p-6 flex-1 overflow-y-auto flex flex-col">
             
-            <!-- SUMMARY CARDS -->
-            <div class="grid grid-cols-4 gap-4 mb-6">
-                <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col items-center">
-                    <span class="text-gray-500 font-medium">All Properties</span>
-                    <span id="count-all" class="text-3xl font-bold text-blue-600 mt-2">...</span>
-                </div>
-                <div class="bg-white p-4 rounded-lg border border-red-100 shadow-sm flex flex-col items-center bg-red-50">
-                    <span class="text-red-800 font-medium">Urgent (<= 2 Days)</span>
-                    <span id="count-urgent" class="text-3xl font-bold text-red-600 mt-2">...</span>
-                </div>
-                <div class="bg-white p-4 rounded-lg border border-green-100 shadow-sm flex flex-col items-center bg-green-50">
-                    <span class="text-green-800 font-medium">Active</span>
-                    <span id="count-active" class="text-3xl font-bold text-green-600 mt-2">...</span>
-                </div>
-                <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col items-center">
-                    <span class="text-gray-500 font-medium">Expired</span>
-                    <span id="count-expired" class="text-3xl font-bold text-gray-600 mt-2">...</span>
+            <!-- VIEW 1: DASHBOARD INSIGHTS -->
+            <div id="dashboard-view" class="block h-full">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4">Pipeline Overview</h3>
+                <div class="grid grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col items-center">
+                        <span class="text-gray-500 font-medium">Total Volume</span>
+                        <span id="count-all" class="text-3xl font-bold text-blue-600 mt-2">0</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg border border-red-100 shadow-sm flex flex-col items-center bg-red-50">
+                        <span class="text-red-800 font-medium">Urgent (<= 2 Days)</span>
+                        <span id="count-urgent" class="text-3xl font-bold text-red-600 mt-2">0</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg border border-green-100 shadow-sm flex flex-col items-center bg-green-50">
+                        <span class="text-green-800 font-medium">Active Pipeline</span>
+                        <span id="count-active" class="text-3xl font-bold text-green-600 mt-2">0</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col items-center">
+                        <span class="text-gray-500 font-medium">Expired/Dropped</span>
+                        <span id="count-expired" class="text-3xl font-bold text-gray-600 mt-2">0</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- DATA TABLE -->
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID & Bank</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property Type</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reserve Price</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submission Date</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body" class="bg-white divide-y divide-gray-200">
-                        <tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">Loading live data from Google Sheets...</td></tr>
-                    </tbody>
-                </table>
+            <!-- VIEW 2: AUCTIONS TABLE -->
+            <div id="auctions-view" class="hidden h-full flex flex-col">
+                
+                <!-- MULTI-FILTER BAR -->
+                <div class="flex flex-col gap-3 mb-4 flex-shrink-0" style="overflow: visible !important;">
+                    <div class="flex gap-3 items-center relative" style="overflow: visible !important;">
+                        
+                        <!-- Search Bar -->
+                        <div class="relative w-1/4 min-w-[200px]">
+                            <input type="text" id="searchInput" oninput="updateTextSearch(this.value)" placeholder="Search ID or Area..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm bg-white">
+                            <span class="absolute left-3 top-2 text-gray-400">🔍</span>
+                        </div>
+                        
+                        <!-- 1. BANKS FILTER -->
+                        <div class="relative">
+                            <button type="button" onclick="toggleCustomPopover(event, 'bankPopover')" class="flex items-center justify-between w-40 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
+                                <span class="font-medium text-gray-700 pointer-events-none">All Banks</span>
+                                <svg class="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div id="bankPopover" class="popover-menu" onclick="event.stopPropagation()">
+                                <input type="text" placeholder="Search banks..." oninput="filterPopoverList(this, 'bankList')" class="w-full px-2.5 py-1.5 mb-2 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                <div id="bankList" class="max-h-44 overflow-y-auto space-y-1 text-xs"></div>
+                            </div>
+                        </div>
+
+                        <!-- 2. PROPERTY TYPE FILTER -->
+                        <div class="relative">
+                            <button type="button" onclick="toggleCustomPopover(event, 'typePopover')" class="flex items-center justify-between w-44 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
+                                <span class="font-medium text-gray-700 pointer-events-none">Property Type</span>
+                                <svg class="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div id="typePopover" class="popover-menu" onclick="event.stopPropagation()">
+                                <input type="text" placeholder="Search types..." oninput="filterPopoverList(this, 'typeList')" class="w-full px-2.5 py-1.5 mb-2 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                <div id="typeList" class="max-h-44 overflow-y-auto space-y-1 text-xs"></div>
+                            </div>
+                        </div>
+
+                        <!-- 3. STATUS FILTER -->
+                        <div class="relative">
+                            <button type="button" onclick="toggleCustomPopover(event, 'statusPopover')" class="flex items-center justify-between w-36 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
+                                <span class="font-medium text-gray-700 pointer-events-none">Status</span>
+                                <svg class="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div id="statusPopover" class="popover-menu" onclick="event.stopPropagation()">
+                                <div id="statusList" class="max-h-44 overflow-y-auto space-y-1 text-xs">
+                                    <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="Active" onchange="handleCheckboxChange('statuses', 'Active', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>Active</span></label>
+                                    <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="Urgent" onchange="handleCheckboxChange('statuses', 'Urgent', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>Urgent</span></label>
+                                    <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="Expired" onchange="handleCheckboxChange('statuses', 'Expired', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>Expired</span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. DATE RANGE DROPDOWN -->
+                        <div class="relative">
+                            <button type="button" onclick="toggleCustomPopover(event, 'datePopover')" class="flex items-center justify-between w-36 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm hover:border-gray-400 cursor-pointer">
+                                <span class="font-medium text-gray-700 pointer-events-none">Date Range</span>
+                                <svg class="w-4 h-4 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div id="datePopover" class="popover-menu" style="width: 280px;" onclick="event.stopPropagation()">
+                                <div class="flex gap-1 mb-2">
+                                    <button type="button" onclick="setDatePreset('week')" class="px-2 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded text-[11px] font-medium">This Week</button>
+                                    <button type="button" onclick="setDatePreset('month')" class="px-2 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded text-[11px] font-medium">This Month</button>
+                                    <button type="button" onclick="setDatePreset('quarter')" class="px-2 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded text-[11px] font-medium">This Quarter</button>
+                                </div>
+                                <div class="text-xs font-bold text-gray-600 mb-1">Custom Range</div>
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <div><label class="text-[10px] text-gray-500">From</label><input type="date" id="dateFrom" class="w-full px-2 py-1 border border-gray-200 rounded text-xs"></div>
+                                    <div><label class="text-[10px] text-gray-500">To</label><input type="date" id="dateTo" class="w-full px-2 py-1 border border-gray-200 rounded text-xs"></div>
+                                </div>
+                                <div class="flex justify-between items-center pt-2 border-t border-gray-100">
+                                    <button type="button" onclick="clearDateFilter()" class="text-xs text-gray-500 hover:text-red-500">Clear</button>
+                                    <button type="button" onclick="applyDateFilter()" class="px-3 py-1 bg-slate-800 text-white rounded text-xs font-medium hover:bg-slate-900">Apply</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 5. SORT BY PRICE -->
+                        <select id="sortSelect" onchange="updateSort(this.value)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white shadow-sm max-w-[150px] cursor-pointer">
+                            <option value="none">Sort by Price</option>
+                            <option value="asc">Low to High</option>
+                            <option value="desc">High to Low</option>
+                        </select>
+                    </div>
+                    
+                    <!-- ACTIVE FILTER TAGS (PILLS) -->
+                    <div id="filterTags" class="flex flex-wrap gap-2 hidden items-center mt-1"></div>
+                </div>
+
+                <!-- COMPACT TABLE -->
+                <div class="bg-white rounded-lg border border-gray-200 shadow-sm flex-1 overflow-hidden flex flex-col">
+                    <div class="table-scroll overflow-auto flex-1">
+                        <table class="min-w-full divide-y divide-gray-200 relative">
+                            <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider w-20">Status</th>
+                                    <th class="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Property Type</th>
+                                    <th class="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Area / Town</th>
+                                    <th class="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Auction ID</th>
+                                    <th class="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Reserve Price</th>
+                                    <th class="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Auction Date</th>
+                                    <th class="px-4 py-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body" class="bg-white divide-y divide-gray-100">
+                                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">Loading live data from Google Sheets...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
+
+            <!-- VIEW 3: PROPERTY DETAIL & MAP VIEW -->
+            <div id="detail-view" class="hidden h-full flex flex-col overflow-y-auto">
+                <div class="mb-4 flex items-center justify-between">
+                    <button type="button" onclick="backToAuctions()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
+                        ← Back to List
+                    </button>
+                    <h3 id="detail-title" class="text-lg font-bold text-gray-800">Property Details</h3>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+                    <!-- Left: All Details from Google Sheet -->
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm space-y-4">
+                        <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2">Spreadsheet Attributes</h4>
+                        <div id="detail-attributes" class="grid grid-cols-2 gap-4 text-sm">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Right: Interactive Map -->
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-col">
+                        <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2 mb-4">Geographic Location</h4>
+                        <div id="propertyMap" class="w-full flex-1 min-h-[350px] rounded-lg border border-gray-200"></div>
+                        <p class="text-xs text-gray-400 mt-2 text-center">💡 Scroll to zoom and inspect the area via OpenStreetMap</p>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
+    <!-- Leaflet JS CDN -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ==========================================
-        // PASTE YOUR APPS SCRIPT WEB APP URL HERE
-        // ==========================================
+        // =========================================================================
+        // ⚠️ PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE ⚠️
+        // =========================================================================
         const API_URL = "https://script.google.com/macros/s/AKfycbxcyMV25BVns8N1rMXcQuH8RpfvKeqfK-wvpcHDXklnJeIh2Bomb15ZY10rGAdllYVk/exec";
 
-        // Helper to parse Indian Date Formats (DD-MM-YYYY)
-        function parseCustomDate(dateStr) {
-            if (!dateStr || dateStr === "Not Found") return null;
-            let parts = dateStr.match(/(\d{2})-(\d{2})-(\d{4})/);
-            if(parts) {
-                return new Date(parts[3], parts[2] - 1, parts[1]); 
+        let globalAuctionData = []; 
+        let activeFilters = { 
+            text: "", 
+            banks: new Set(), 
+            types: new Set(), 
+            statuses: new Set(),
+            dateRange: null, 
+            sort: "none" 
+        };
+        let currentMapInstance = null;
+
+        function toggleSidebarDropdown(e) {
+            e.stopPropagation();
+            document.getElementById('auctions-menu').classList.toggle('open');
+            document.getElementById('dropdown-arrow').classList.toggle('rotate-180');
+        }
+
+        function toggleCustomPopover(e, popoverId) {
+            e.stopPropagation();
+            const target = document.getElementById(popoverId);
+            document.querySelectorAll('.popover-menu').forEach(el => {
+                if (el !== target) el.style.display = 'none';
+            });
+            if (target) {
+                target.style.display = target.style.display === 'block' ? 'none' : 'block';
             }
-            return new Date(dateStr); 
+        }
+
+        function closeAllPopovers(e) {
+            if (!e.target.closest('.popover-menu') && !e.target.closest('button')) {
+                document.querySelectorAll('.popover-menu').forEach(el => el.style.display = 'none');
+            }
+        }
+
+        function filterPopoverList(input, listId) {
+            const query = input.value.toLowerCase();
+            const container = document.getElementById(listId);
+            const items = container.querySelectorAll('label');
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(query) ? 'flex' : 'none';
+            });
+        }
+
+        function switchView(viewId, buttonId) {
+            document.getElementById('dashboard-view').classList.add('hidden');
+            document.getElementById('auctions-view').classList.add('hidden');
+            document.getElementById('detail-view').classList.add('hidden');
+            document.getElementById(viewId).classList.remove('hidden');
+            
+            if(viewId === 'detail-view') return;
+
+            const buttons = ['nav-dashboard', 'nav-all', 'nav-fav', 'nav-wip', 'nav-rej'];
+            buttons.forEach(id => {
+                const btn = document.getElementById(id);
+                if(btn) {
+                    btn.classList.remove('text-blue-600', 'bg-blue-50');
+                    btn.classList.add('text-gray-600');
+                }
+            });
+            
+            const activeBtn = document.getElementById(buttonId);
+            if(activeBtn) {
+                activeBtn.classList.remove('text-gray-600');
+                activeBtn.classList.add('text-blue-600', 'bg-blue-50');
+            }
+
+            const titleMap = {
+                'nav-dashboard': 'System Insights',
+                'nav-all': 'All Auctions',
+                'nav-fav': 'Favourite Properties',
+                'nav-wip': 'Work In Progress',
+                'nav-rej': 'Rejected Properties'
+            };
+            const titleEl = document.getElementById('page-title');
+            if(titleEl && titleMap[buttonId]) titleEl.innerText = titleMap[buttonId];
+        }
+
+        function backToAuctions() {
+            switchView('auctions-view', 'nav-all');
+        }
+
+        function parseCustomDate(dateStr) {
+            if (!dateStr || dateStr === "Not Found" || String(dateStr).trim() === "") return { dateObj: null, dateStr: "Unknown", timeStr: "-" };
+            let d, m, y, timeStr = "-";
+            let strDate = String(dateStr);
+            if (strDate.includes("T")) {
+                let dateParts = strDate.split("T")[0].split("-");
+                d = parseInt(dateParts[1]); 
+                m = parseInt(dateParts[2]) - 1; 
+                y = parseInt(dateParts[0]); 
+                timeStr = new Date(strDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+            } else {
+                let cleanStr = strDate.replace(/-/g, '/'); 
+                let splitSpace = cleanStr.split(" ");
+                let dateParts = splitSpace[0].split("/");
+                if (dateParts.length >= 3) {
+                    d = parseInt(dateParts[0]);
+                    m = parseInt(dateParts[1]) - 1;
+                    y = parseInt(dateParts[2]);
+                }
+                if (splitSpace.length > 1) timeStr = splitSpace.slice(1).join(" ");
+            }
+            let finalDate = new Date(y, m, d);
+            let displayDate = isNaN(finalDate.getTime()) ? strDate : finalDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            return { dateObj: finalDate, dateStr: displayDate, timeStr: timeStr };
+        }
+
+        function getStatusString(dateObj) {
+            if (!dateObj) return "Unknown";
+            const now = new Date();
+            const daysDiff = (dateObj - now) / (1000 * 3600 * 24);
+            if (daysDiff < 0) return "Expired";
+            if (daysDiff <= 2) return "Urgent";
+            return "Active";
+        }
+
+        function populateDropdowns(data) {
+            let banks = [...new Set(data.map(item => item["Bank Name"]).filter(Boolean))].sort();
+            let types = [...new Set(data.map(item => item["Property Type"]).filter(Boolean))].sort();
+
+            const bankList = document.getElementById("bankList");
+            bankList.innerHTML = "";
+            banks.forEach(b => {
+                bankList.innerHTML += `<label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
+                    <input type="checkbox" value="${b}" onchange="handleCheckboxChange('banks', '${b.replace(/'/g, "\\\\'")}', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <span class="text-gray-700 truncate">${b}</span>
+                </label>`;
+            });
+
+            const typeList = document.getElementById("typeList");
+            typeList.innerHTML = "";
+            types.forEach(t => {
+                typeList.innerHTML += `<label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
+                    <input type="checkbox" value="${t}" onchange="handleCheckboxChange('types', '${t.replace(/'/g, "\\\\'")}', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <span class="text-gray-700 truncate">${t}</span>
+                </label>`;
+            });
+        }
+
+        function handleCheckboxChange(type, value, isChecked) {
+            if (isChecked) activeFilters[type].add(value);
+            else activeFilters[type].delete(value);
+            renderFilterTags();
+            applyFilters();
+        }
+
+        function updateTextSearch(val) {
+            activeFilters.text = val.toLowerCase();
+            applyFilters();
+        }
+
+        function updateSort(val) {
+            activeFilters.sort = val;
+            renderFilterTags();
+            applyFilters();
+        }
+
+        function setDatePreset(preset) {
+            const now = new Date();
+            let from = new Date(), to = new Date();
+            if (preset === 'week') {
+                let day = now.getDay();
+                from.setDate(now.getDate() - day);
+                to.setDate(from.getDate() + 6);
+            } else if (preset === 'month') {
+                from = new Date(now.getFullYear(), now.getMonth(), 1);
+                to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            } else if (preset === 'quarter') {
+                let quarter = Math.floor(now.getMonth() / 3);
+                from = new Date(now.getFullYear(), quarter * 3, 1);
+                to = new Date(now.getFullYear(), quarter * 3 + 3, 0);
+            }
+            document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+            document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+        }
+
+        function applyDateFilter() {
+            const from = document.getElementById('dateFrom').value;
+            const to = document.getElementById('dateTo').value;
+            if (from && to) {
+                activeFilters.dateRange = { from: new Date(from), to: new Date(to) };
+                renderFilterTags();
+                applyFilters();
+                document.getElementById('datePopover').style.display = 'none';
+            }
+        }
+
+        function clearDateFilter() {
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            activeFilters.dateRange = null;
+            renderFilterTags();
+            applyFilters();
+        }
+
+        function removeMultiFilter(type, value) {
+            if (type === 'sort') {
+                activeFilters.sort = 'none';
+                document.getElementById('sortSelect').value = 'none';
+            } else if (type === 'dateRange') {
+                activeFilters.dateRange = null;
+                clearDateFilter();
+            } else {
+                activeFilters[type].delete(value);
+                document.querySelectorAll(`input[type="checkbox"][value="${value}"]`).forEach(cb => cb.checked = false);
+            }
+            renderFilterTags();
+            applyFilters();
+        }
+
+        function clearAllFilters() {
+            activeFilters.banks.clear();
+            activeFilters.types.clear();
+            activeFilters.statuses.clear();
+            activeFilters.dateRange = null;
+            activeFilters.sort = "none";
+            document.getElementById('sortSelect').value = "none";
+            clearDateFilter();
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            renderFilterTags();
+            applyFilters();
+        }
+
+        function renderFilterTags() {
+            const container = document.getElementById("filterTags");
+            container.innerHTML = "";
+            let hasTags = false;
+
+            ['banks', 'types', 'statuses'].forEach(type => {
+                activeFilters[type].forEach(val => {
+                    container.innerHTML += createTagHtml(type, val, val);
+                    hasTags = true;
+                });
+            });
+
+            if (activeFilters.dateRange) {
+                let label = `Date: ${activeFilters.dateRange.from.toLocaleDateString()} - ${activeFilters.dateRange.to.toLocaleDateString()}`;
+                container.innerHTML += createTagHtml('dateRange', 'range', label);
+                hasTags = true;
+            }
+
+            if (activeFilters.sort !== "none") {
+                let label = activeFilters.sort === 'asc' ? 'Price: Low to High' : 'Price: High to Low';
+                container.innerHTML += createTagHtml('sort', activeFilters.sort, label);
+                hasTags = true;
+            }
+
+            if (hasTags) {
+                container.innerHTML += `<button type="button" onclick="clearAllFilters()" class="ml-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-xs font-bold hover:bg-red-100 transition border border-red-100">Clear All</button>`;
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        function createTagHtml(type, value, displayLabel) {
+            const safeValue = typeof value === 'string' ? value.replace(/'/g, "\\'") : value;
+            return `<div class="flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium border border-gray-200 shadow-sm">
+                <span>${displayLabel}</span>
+                <button type="button" onclick="removeMultiFilter('${type}', '${safeValue}')" class="text-gray-400 hover:text-red-500 outline-none">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>`;
+        }
+
+        // --- OPEN DETAIL VIEW WITH MAP ---
+        async function openPropertyDetail(auctionId) {
+            const property = globalAuctionData.find(row => String(row["Auction ID"]) === String(auctionId));
+            if (!property) return;
+
+            switchView('detail-view', '');
+            document.getElementById('page-title').innerText = `Auction #${auctionId} Details`;
+
+            // Populate attributes
+            const attrContainer = document.getElementById('detail-attributes');
+            attrContainer.innerHTML = "";
+            for (let [key, val] of Object.entries(property)) {
+                attrContainer.innerHTML += `
+                    <div class="border-b pb-2">
+                        <span class="block text-xs font-semibold text-gray-400 uppercase">${key}</span>
+                        <span class="text-gray-800 font-medium">${val || "N/A"}</span>
+                    </div>
+                `;
+            }
+
+            // Render OpenStreetMap
+            const areaTown = property["Area / Town"] || "Bengaluru";
+            let lat = 12.9716, lng = 77.5946; // Default Bengaluru center
+
+            try {
+                let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(areaTown + ", Bengaluru, Karnataka, India")}`);
+                let data = await response.json();
+                if (data && data.length > 0) {
+                    lat = parseFloat(data[0].lat);
+                    lng = parseFloat(data[0].lon);
+                }
+            } catch (e) {
+                console.error("Geocoding lookup failed, defaulting to central coordinates.");
+            }
+
+            setTimeout(() => {
+                if (currentMapInstance) {
+                    currentMapInstance.remove();
+                }
+                currentMapInstance = L.map('propertyMap').setView([lat, lng], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(currentMapInstance);
+                L.marker([lat, lng]).addTo(currentMapInstance)
+                    .bindPopup(`<b>#${auctionId}</b><br>${areaTown}`)
+                    .openPopup();
+            }, 100);
+        }
+
+        // --- TABLE RENDERING ---
+        function renderTable(dataToRender) {
+            const tableBody = document.getElementById("table-body");
+            tableBody.innerHTML = ""; 
+
+            if(dataToRender.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No properties found matching your criteria.</td></tr>`;
+                return;
+            }
+
+            dataToRender.forEach(row => {
+                const parsedData = parseCustomDate(row["Auction Start Date"]);
+                const statusStr = getStatusString(parsedData.dateObj);
+                
+                let statusHtml = "";
+                if (statusStr === "Expired") statusHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold badge-expired">Expired</span>`;
+                else if (statusStr === "Urgent") statusHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold badge-urgent">Urgent</span>`;
+                else if (statusStr === "Active") statusHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold badge-active">Active</span>`;
+                else statusHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold badge-expired">Unknown</span>`;
+
+                let rawPrice = String(row["Reserve Price"] || "0").replace(/[^0-9.-]+/g, "");
+                let formattedPrice = rawPrice > 0 ? "₹" + Number(rawPrice).toLocaleString('en-IN') : "Price Not Listed";
+
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-blue-50/40 transition-colors cursor-pointer group";
+                tr.onclick = () => openPropertyDetail(row["Auction ID"]);
+                
+                tr.innerHTML = `
+                    <td class="px-4 py-1.5 whitespace-nowrap">${statusHtml}</td>
+                    <td class="px-4 py-1.5 whitespace-nowrap text-gray-800">${row["Property Type"] || "N/A"}</td>
+                    <td class="px-4 py-1.5 whitespace-nowrap text-gray-600">${row["Area / Town"] || "Unknown"}</td>
+                    <td class="px-4 py-1.5 whitespace-nowrap font-medium text-gray-900">#${row["Auction ID"] || "N/A"}</td>
+                    <td class="px-4 py-1.5 whitespace-nowrap font-bold text-gray-800">${formattedPrice}</td>
+                    <td class="px-4 py-1.5 whitespace-nowrap">
+                        <span class="text-gray-800">${parsedData.dateStr}</span>
+                        <span class="text-xs text-gray-400 ml-1">${parsedData.timeStr !== "-" ? parsedData.timeStr : ""}</span>
+                    </td>
+                    <td class="px-4 py-1.5 whitespace-nowrap text-right text-gray-400 group-hover:text-blue-600">
+                        <svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function applyFilters() {
+            let filteredData = globalAuctionData.filter(row => {
+                const searchString = String(row["Area / Town"] + " " + row["Auction ID"]).toLowerCase();
+                const textMatch = searchString.includes(activeFilters.text);
+                
+                const bankMatch = activeFilters.banks.size === 0 || activeFilters.banks.has(row["Bank Name"]);
+                const typeMatch = activeFilters.types.size === 0 || activeFilters.types.has(row["Property Type"]);
+                
+                const parsed = parseCustomDate(row["Auction Start Date"]);
+                const statusStr = getStatusString(parsed.dateObj);
+                const statusMatch = activeFilters.statuses.size === 0 || activeFilters.statuses.has(statusStr);
+                
+                let dateMatch = true;
+                if (activeFilters.dateRange && row["Auction Start Date"]) {
+                    if (parsed.dateObj) {
+                        dateMatch = parsed.dateObj >= activeFilters.dateRange.from && parsed.dateObj <= activeFilters.dateRange.to;
+                    } else {
+                        dateMatch = false;
+                    }
+                }
+
+                return textMatch && bankMatch && typeMatch && statusMatch && dateMatch;
+            });
+
+            if (activeFilters.sort !== "none") {
+                filteredData.sort((a, b) => {
+                    let valA = Number(String(a["Reserve Price"] || "0").replace(/[^0-9.-]+/g, ""));
+                    let valB = Number(String(b["Reserve Price"] || "0").replace(/[^0-9.-]+/g, ""));
+                    return activeFilters.sort === "asc" ? valA - valB : valB - valA;
+                });
+            }
+
+            renderTable(filteredData);
         }
 
         async function fetchAuctionData() {
             try {
                 const response = await fetch(API_URL);
-                const data = await response.json();
+                globalAuctionData = await response.json();
                 
-                let urgentCount = 0;
-                let activeCount = 0;
-                let expiredCount = 0;
-                
-                const tableBody = document.getElementById("table-body");
-                tableBody.innerHTML = ""; // Clear loading text
-
                 const now = new Date();
+                let counts = { urgent: 0, active: 0, expired: 0 };
 
-                data.forEach(row => {
-                    const submissionDateStr = row["Application Submission Date"];
-                    const subDate = parseCustomDate(submissionDateStr);
-                    
-                    let statusHtml = "";
-                    
-                    // The Delta/Time Math
-                    if (subDate) {
-                        const timeDiff = subDate - now;
-                        const daysDiff = timeDiff / (1000 * 3600 * 24);
-
-                        if (daysDiff < 0) {
-                            statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold badge-expired">⚫ Expired</span>`;
-                            expiredCount++;
-                        } else if (daysDiff <= 2) {
-                            statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold badge-urgent">🔴 Urgent</span>`;
-                            urgentCount++;
-                        } else {
-                            statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold badge-active">🟢 Active</span>`;
-                            activeCount++;
-                        }
-                    } else {
-                        statusHtml = `<span class="px-2 py-1 rounded text-xs font-bold badge-expired">⚪ Unknown</span>`;
-                    }
-
-                    // Format Currency
-                    let formattedPrice = "₹" + Number(row["Reserve Price"] || 0).toLocaleString('en-IN');
-
-                    // Create Row
-                    const tr = document.createElement("tr");
-                    tr.className = "hover:bg-gray-50";
-                    tr.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap">${statusHtml}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="font-medium text-gray-900">#${row["Auction ID"]}</div>
-                            <div class="text-gray-500">${row["Bank Name"]}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-700">${row["Property Type"]} <br><span class="text-xs text-gray-400">${row["Area / Town"]}</span></td>
-                        <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-800">${formattedPrice}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-600">${submissionDateStr}</td>
-                    `;
-                    tableBody.appendChild(tr);
+                globalAuctionData.forEach(row => {
+                    const parsed = parseCustomDate(row["Auction Start Date"]);
+                    const statusStr = getStatusString(parsed.dateObj);
+                    if (statusStr === "Expired") counts.expired++;
+                    else if (statusStr === "Urgent") counts.urgent++;
+                    else if (statusStr === "Active") counts.active++;
                 });
 
-                // Update Top Cards
-                document.getElementById("count-all").innerText = data.length;
-                document.getElementById("count-urgent").innerText = urgentCount;
-                document.getElementById("count-active").innerText = activeCount;
-                document.getElementById("count-expired").innerText = expiredCount;
+                document.getElementById("count-all").innerText = globalAuctionData.length;
+                document.getElementById("count-urgent").innerText = counts.urgent;
+                document.getElementById("count-active").innerText = counts.active;
+                document.getElementById("count-expired").innerText = counts.expired;
+
+                populateDropdowns(globalAuctionData);
+                renderTable(globalAuctionData);
 
             } catch (error) {
                 console.error("Data Fetch Error:", error);
-                document.getElementById("table-body").innerHTML = `<tr><td colspan="5" class="text-center text-red-500">Failed to connect to backend. Check your URL.</td></tr>`;
+                document.getElementById("table-body").innerHTML = `<tr><td colspan="7" class="text-center text-red-500 py-4">Failed to connect to backend. Check your URL.</td></tr>`;
             }
         }
 
-        // Trigger fetch on load
         fetchAuctionData();
     </script>
 </body>
