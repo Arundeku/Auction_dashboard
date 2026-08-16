@@ -765,10 +765,25 @@
                 globalAuctionData = await response.json();
                 
                 let counts = { urgent: 0, active: 0, expired: 0 };
-                globalAuctionData.forEach(r => {
-                    const statusStr = getStatusString(parseCustomDate(r["Auction Start Date"]).dateObj);
-                    if (statusStr === "Expired") counts.expired++; else if (statusStr === "Urgent") counts.urgent++; else if (statusStr === "Active") counts.active++;
+
+                globalAuctionData.forEach(row => {
+                    const parsed = parseCustomDate(row["Auction Start Date"]);
+                    const statusStr = getStatusString(parsed.dateObj);
+                    if (statusStr === "Expired") counts.expired++;
+                    else if (statusStr === "Urgent") counts.urgent++;
+                    else if (statusStr === "Active") counts.active++;
+
+                    // --- NEW: SYNC BACKEND LEAD STAGES WITH LOCAL UI ---
+                    const auctionId = String(row["Auction ID"]);
+                    const backendStage = String(row["Lead Stage"] || "").toUpperCase().trim();
+                    
+                    if (backendStage === "FAV") userFavorites.add(auctionId);
+                    else if (backendStage === "WIP") userWip.add(auctionId);
+                    else if (backendStage === "REJ") userRejected.add(auctionId);
                 });
+
+                // Save the merged data back to localStorage so it stays perfectly synced
+                savePersistentStates(); 
 
                 document.getElementById("count-all").innerText = globalAuctionData.length;
                 document.getElementById("count-urgent").innerText = counts.urgent;
@@ -776,7 +791,14 @@
                 document.getElementById("count-expired").innerText = counts.expired;
 
                 populateDropdowns(globalAuctionData);
-                if (currentSubView === 'nav-dashboard') renderOverviewCharts(); else applyFilters();
+                
+                // Render overview charts on initial load since Overview is default
+                if (currentSubView === 'nav-dashboard') {
+                    renderOverviewCharts();
+                } else {
+                    applyFilters();
+                }
+
             } catch (error) {
                 console.error("Data Fetch Error:", error);
                 document.getElementById("table-body").innerHTML = `<tr><td colspan="7" class="text-center text-red-500 py-4">Failed to connect to backend. Check your URL.</td></tr>`;
