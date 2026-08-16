@@ -766,6 +766,12 @@
                 
                 let counts = { urgent: 0, active: 0, expired: 0 };
 
+                // 🚨 THE FIX: Completely wipe the phone's local memory first.
+                // This forces the device to perfectly mirror the Google Sheet.
+                userFavorites.clear();
+                userWip.clear();
+                userRejected.clear();
+
                 globalAuctionData.forEach(row => {
                     const parsed = parseCustomDate(row["Auction Start Date"]);
                     const statusStr = getStatusString(parsed.dateObj);
@@ -773,7 +779,7 @@
                     else if (statusStr === "Urgent") counts.urgent++;
                     else if (statusStr === "Active") counts.active++;
 
-                    // --- NEW: SYNC BACKEND LEAD STAGES WITH LOCAL UI ---
+                    // Read the database truth
                     const auctionId = String(row["Auction ID"]);
                     const backendStage = String(row["Lead Stage"] || "").toUpperCase().trim();
                     
@@ -782,7 +788,7 @@
                     else if (backendStage === "REJ") userRejected.add(auctionId);
                 });
 
-                // Save the merged data back to localStorage so it stays perfectly synced
+                // Save the exact, fresh database state back to the phone's local storage
                 savePersistentStates(); 
 
                 document.getElementById("count-all").innerText = globalAuctionData.length;
