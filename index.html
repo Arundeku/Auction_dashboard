@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auction Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        .badge-urgent { background-color: #FEE2E2; color: #991B1B; }
+        .badge-active { background-color: #DCFCE7; color: #166534; }
+        .badge-expired { background-color: #F3F4F6; color: #374151; }
+        .dropdown-content { transition: max-height 0.3s ease-in-out; overflow: hidden; max-height: 0; }
+        .dropdown-content.open { max-height: 250px; }
+        
+        .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .table-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .popover-menu { display: none; position: absolute; z-index: 99999; background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); width: 280px; padding: 12px; top: 100%; margin-top: 4px; left: 0; }
+        
+        .sidebar-item { transition: all 0.2s ease-in-out; }
+        .sidebar-item.active { background-color: #111827; color: #ffffff; border-radius: 9999px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        
+        .sort-icon { display: inline-block; width: 14px; opacity: 0.3; transition: all 0.2s; }
+        .sort-active { opacity: 1; color: #2563eb; }
+
+        .wip-panel { display: none; background-color: #f8fafc; border-top: 1px dashed #cbd5e1; border-bottom: 2px solid #93c5fd; }
+        .wip-panel.expanded { display: table-row; }
+    </style>
+</head>
+<body class="bg-gray-50 flex h-screen font-sans text-sm overflow-hidden" onclick="closeAllPopovers(event)">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col h-full flex-shrink-0">
+        <div class="p-6 border-b border-gray-200">
+            <h1 class="text-xl font-bold text-gray-800 flex items-center">🏢 allauctions</h1>
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-1 text-gray-600 overflow-y-auto">
+            <button type="button" onclick="switchView('dashboard-view', 'nav-dashboard')" id="nav-dashboard" class="sidebar-item w-full text-left block px-4 py-2.5 rounded-lg font-medium active">
+                📊 Overview
+            </button>
+            
+            <div>
+                <button type="button" onclick="toggleSidebarDropdown(event)" class="w-full text-left flex justify-between items-center px-4 py-2.5 rounded-lg hover:bg-gray-100 font-medium text-gray-700 transition-colors">
+                    <span>📑 Auctions</span>
+                    <svg id="dropdown-arrow" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                
+                <div id="auctions-menu" class="dropdown-content ml-4 mt-1 space-y-1 open">
+                    <button type="button" onclick="switchView('auctions-view', 'nav-all')" id="nav-all" class="sidebar-item w-full text-left block px-4 py-2 rounded-lg text-sm font-medium">📑 All Auctions</button>
+                    <button type="button" onclick="switchView('auctions-view', 'nav-new')" id="nav-new" class="sidebar-item w-full text-left block px-4 py-2 rounded-lg text-sm font-medium">✨ New Auctions</button>
+                    <button type="button" onclick="switchView('auctions-view', 'nav-fav')" id="nav-fav" class="sidebar-item w-full text-left block px-4 py-2 rounded-lg text-sm font-medium">⭐ Favourites</button>
+                    <button type="button" onclick="switchView('auctions-view', 'nav-wip')" id="nav-wip" class="sidebar-item w-full text-left block px-4 py-2 rounded-lg text-sm font-medium">⏳ Work In Progress</button>
+                    <button type="button" onclick="switchView('auctions-view', 'nav-rej')" id="nav-rej" class="sidebar-item w-full text-left block px-4 py-2 rounded-lg text-sm font-medium">🚫 Rejected</button>
+                </div>
+            </div>
+
+            <!-- Visit Planner Tab -->
+            <button type="button" onclick="switchView('visit-planner-view', 'nav-visit')" id="nav-visit" class="sidebar-item w-full text-left block px-4 py-2.5 mt-2 rounded-lg font-medium">
+                🗺️ Visit Planner
+            </button>
+        </nav>
+    </aside>
+
+    <!-- MAIN AREA -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-gray-50/50">
+        <header class="bg-white border-b border-gray-200 p-5 flex justify-between items-center flex-shrink-0">
+            <h2 id="page-title" class="text-xl font-bold text-gray-800">Overview</h2>
+        </header>
+
+        <div class="p-6 flex-1 overflow-y-auto flex flex-col">
+            
+            <!-- VIEW 1: DASHBOARD INSIGHTS -->
+            <div id="dashboard-view" class="block h-full space-y-6 animate-fade-in pb-10">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Pipeline Metrics</h3>
+                <div class="grid grid-cols-5 gap-4">
+                    <div class="bg-white p-5 rounded-xl border border-blue-100 shadow-sm flex flex-col items-center bg-gradient-to-br from-blue-50/50 to-white">
+                        <span class="text-blue-700 font-medium text-[10px] uppercase tracking-wider">✨ New Arrivals</span>
+                        <span id="count-new" class="text-3xl font-extrabold text-blue-600 mt-2">0</span>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-green-100 shadow-sm flex flex-col items-center bg-gradient-to-br from-green-50/50 to-white">
+                        <span class="text-green-700 font-medium text-[10px] uppercase tracking-wider">🟢 Active Pipeline</span>
+                        <span id="count-active" class="text-3xl font-extrabold text-green-600 mt-2">0</span>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-amber-100 shadow-sm flex flex-col items-center bg-gradient-to-br from-amber-50/50 to-white">
+                        <span class="text-amber-700 font-medium text-[10px] uppercase tracking-wider">⏳ WIP Portfolio</span>
+                        <span id="count-wip" class="text-3xl font-extrabold text-amber-600 mt-2">0</span>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-red-100 shadow-sm flex flex-col items-center bg-gradient-to-br from-red-50/50 to-white">
+                        <span class="text-red-700 font-medium text-[10px] uppercase tracking-wider">🔴 Urgent (≤ 2 Days)</span>
+                        <span id="count-urgent" class="text-3xl font-extrabold text-red-600 mt-2">0</span>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center">
+                        <span class="text-gray-500 font-medium text-[10px] uppercase tracking-wider">🚫 Expired/Dropped</span>
+                        <span id="count-expired" class="text-3xl font-extrabold text-gray-600 mt-2">0</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+                    <div class="md:col-span-3 bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                        <h4 class="text-sm font-bold text-gray-800 mb-4 flex items-center justify-between">
+                            <span>⏱️ WIP Action Tracker</span>
+                            <span id="wip-tracker-count" class="text-xs text-gray-400 font-normal">0 Active Work-In-Progress</span>
+                        </h4>
+                        <div id="wip-tracker-container" class="space-y-3 max-h-64 overflow-y-auto pr-2"></div>
+                    </div>
+                    <div class="md:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                        <h4 class="text-sm font-bold text-gray-800 mb-4 flex items-center justify-between">
+                            <span>🎯 Lead Processing</span>
+                            <span class="text-xs text-gray-400 font-normal">New Data Efficiency</span>
+                        </h4>
+                        <div id="lead-gauge-container" class="flex-1 flex flex-col items-center justify-center"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                        <h4 class="text-sm font-bold text-gray-800 mb-4 flex items-center justify-between"><span>🏷️ Asset Category Share</span><span class="text-xs text-gray-400 font-normal">Market Distribution</span></h4>
+                        <div id="chart-categories" class="flex-1 flex items-center justify-center"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                        <h4 class="text-sm font-bold text-gray-800 mb-4 flex items-center justify-between"><span>📍 Geographic Zone Volume</span><span class="text-xs text-gray-400 font-normal">By Area Groupings</span></h4>
+                        <div id="chart-zones" class="space-y-3 flex-1 flex flex-col justify-center"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 2: AUCTIONS TABLE -->
+            <div id="auctions-view" class="hidden h-full flex flex-col">
+                <div class="flex flex-col gap-3 mb-4 flex-shrink-0" style="overflow: visible !important;">
+                    <div class="flex gap-2 items-center relative flex-wrap" style="overflow: visible !important;">
+                        <div class="relative w-48">
+                            <input type="text" id="searchInput" oninput="updateTextSearch(this.value)" placeholder="Search ID or Area..." class="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm bg-white">
+                            <span class="absolute left-2.5 top-1.5 text-gray-400 text-xs">🔍</span>
+                        </div>
+                        
+                        <div class="relative"><button type="button" onclick="toggleCustomPopover(event, 'bankPopover')" class="flex items-center justify-between w-28 px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white shadow-sm hover:border-gray-400 cursor-pointer"><span class="font-medium text-gray-700 pointer-events-none">Banks</span><svg class="w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button><div id="bankPopover" class="popover-menu" onclick="event.stopPropagation()"><input type="text" placeholder="Search banks..." oninput="filterPopoverList(this, 'bankList')" class="w-full px-2 py-1 mb-2 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"><div id="bankList" class="max-h-44 overflow-y-auto space-y-1 text-xs"></div></div></div>
+                        <div class="relative"><button type="button" onclick="toggleCustomPopover(event, 'catPopover')" class="flex items-center justify-between w-32 px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white shadow-sm hover:border-gray-400 cursor-pointer"><span class="font-medium text-gray-700 pointer-events-none">Category</span><svg class="w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button><div id="catPopover" class="popover-menu" onclick="event.stopPropagation()"><input type="text" placeholder="Search categories..." oninput="filterPopoverList(this, 'catList')" class="w-full px-2 py-1 mb-2 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"><div id="catList" class="max-h-44 overflow-y-auto space-y-1 text-xs"></div></div></div>
+                        <div class="relative"><button type="button" onclick="toggleCustomPopover(event, 'zonePopover')" class="flex items-center justify-between w-24 px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white shadow-sm hover:border-gray-400 cursor-pointer"><span class="font-medium text-gray-700 pointer-events-none">Zone</span><svg class="w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button><div id="zonePopover" class="popover-menu" onclick="event.stopPropagation()"><div class="max-h-44 overflow-y-auto space-y-1 text-xs"><label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="North" onchange="handleCheckboxChange('zones', 'North', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>North</span></label><label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="South" onchange="handleCheckboxChange('zones', 'South', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>South</span></label><label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="East" onchange="handleCheckboxChange('zones', 'East', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>East</span></label><label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="West" onchange="handleCheckboxChange('zones', 'West', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>West</span></label></div></div></div>
+                        <div class="relative"><button type="button" onclick="toggleCustomPopover(event, 'statusPopover')" class="flex items-center justify-between w-24 px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white shadow-sm hover:border-gray-400 cursor-pointer"><span class="font-medium text-gray-700 pointer-events-none">Status</span><svg class="w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button><div id="statusPopover" class="popover-menu" onclick="event.stopPropagation()"><div class="max-h-44 overflow-y-auto space-y-1 text-xs"><label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="Active" onchange="handleCheckboxChange('statuses', 'Active', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>Active</span></label><label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="Urgent" onchange="handleCheckboxChange('statuses', 'Urgent', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>Urgent</span></label><label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="Expired" onchange="handleCheckboxChange('statuses', 'Expired', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span>Expired</span></label></div></div></div>
+                        <div class="relative"><button type="button" onclick="toggleCustomPopover(event, 'sqftPopover')" class="flex items-center justify-between w-28 px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white shadow-sm hover:border-gray-400 cursor-pointer"><span class="font-medium text-gray-700 pointer-events-none">Sq. Feet</span><svg class="w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button><div id="sqftPopover" class="popover-menu" style="width: 220px;" onclick="event.stopPropagation()"><div class="text-[11px] font-bold text-gray-600 mb-2">Area Range (Sq.Ft)</div><div class="flex items-center gap-2 mb-3"><input type="number" id="minSqft" placeholder="Min" class="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-500"><span class="text-gray-400">-</span><input type="number" id="maxSqft" placeholder="Max" class="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-500"></div><div class="flex justify-between items-center pt-2 border-t border-gray-100"><button type="button" onclick="clearRangeFilter('sqftRange', 'minSqft', 'maxSqft')" class="text-[11px] text-gray-500 hover:text-red-500">Clear</button><button type="button" onclick="applyRangeFilter('sqftRange', 'minSqft', 'maxSqft', 'sqftPopover')" class="px-3 py-1 bg-slate-800 text-white rounded text-[11px] font-medium hover:bg-slate-900">Apply</button></div></div></div>
+                        <div class="relative"><button type="button" onclick="toggleCustomPopover(event, 'pricePopover')" class="flex items-center justify-between w-28 px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white shadow-sm hover:border-gray-400 cursor-pointer"><span class="font-medium text-gray-700 pointer-events-none">Price ₹</span><svg class="w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button><div id="pricePopover" class="popover-menu" style="width: 260px;" onclick="event.stopPropagation()"><div class="text-[11px] font-bold text-gray-600 mb-2">Reserve Price Range (₹)</div><div class="flex items-center gap-2 mb-3"><input type="number" id="minPrice" placeholder="Min ₹" class="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-500"><span class="text-gray-400">-</span><input type="number" id="maxPrice" placeholder="Max ₹" class="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-500"></div><div class="flex justify-between items-center pt-2 border-t border-gray-100"><button type="button" onclick="clearRangeFilter('priceRange', 'minPrice', 'maxPrice')" class="text-[11px] text-gray-500 hover:text-red-500">Clear</button><button type="button" onclick="applyRangeFilter('priceRange', 'minPrice', 'maxPrice', 'pricePopover')" class="px-3 py-1 bg-slate-800 text-white rounded text-[11px] font-medium hover:bg-slate-900">Apply</button></div></div></div>
+                        <div class="relative"><button type="button" onclick="toggleCustomPopover(event, 'datePopover')" class="flex items-center justify-between w-32 px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white shadow-sm hover:border-gray-400 cursor-pointer"><span class="font-medium text-gray-700 pointer-events-none">Auction Date</span><svg class="w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button><div id="datePopover" class="popover-menu" style="width: 250px;" onclick="event.stopPropagation()"><div class="flex gap-1 mb-2"><button type="button" onclick="setDatePreset('week')" class="px-2 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded text-[10px] font-medium">This Week</button><button type="button" onclick="setDatePreset('month')" class="px-2 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded text-[10px] font-medium">This Month</button><button type="button" onclick="setDatePreset('quarter')" class="px-2 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded text-[10px] font-medium">This Qtr</button></div><div class="grid grid-cols-2 gap-2 mb-2"><div><label class="text-[10px] text-gray-500">From</label><input type="date" id="dateFrom" class="w-full px-2 py-1 border border-gray-200 rounded text-xs"></div><div><label class="text-[10px] text-gray-500">To</label><input type="date" id="dateTo" class="w-full px-2 py-1 border border-gray-200 rounded text-xs"></div></div><div class="flex justify-between items-center pt-2 border-t border-gray-100"><button type="button" onclick="clearDateFilter()" class="text-[11px] text-gray-500 hover:text-red-500">Clear</button><button type="button" onclick="applyDateFilter()" class="px-3 py-1 bg-slate-800 text-white rounded text-[11px] font-medium hover:bg-slate-900">Apply</button></div></div></div>
+
+                        <div id="rowCountDisplay" class="ml-auto text-[11px] font-semibold text-gray-600 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">Showing 0 of 0 properties</div>
+                    </div>
+                    <div id="filterTags" class="flex flex-wrap gap-2 hidden items-center mt-1"></div>
+                </div>
+
+                <!-- COMPACT TABLE -->
+                <div class="bg-white rounded-lg border border-gray-200 shadow-sm flex-1 overflow-hidden flex flex-col">
+                    <div class="table-scroll overflow-auto flex-1">
+                        <table class="min-w-full divide-y divide-gray-200 relative">
+                            <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm select-none">
+                                <tr>
+                                    <th class="px-4 py-3 text-left w-20 cursor-pointer hover:bg-gray-100" onclick="handleSort('Status')"><div class="flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Status <span id="sort-Status" class="sort-icon ml-1">↕</span></div></th>
+                                    <th class="px-4 py-3 text-left cursor-pointer hover:bg-gray-100" onclick="handleSort('Property Type')"><div class="flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Property Type <span id="sort-Property Type" class="sort-icon ml-1">↕</span></div></th>
+                                    <th class="px-4 py-3 text-left cursor-pointer hover:bg-gray-100" onclick="handleSort('Square Feet')"><div class="flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Sq. Feet <span id="sort-Square Feet" class="sort-icon ml-1">↕</span></div></th>
+                                    <th class="px-4 py-3 text-left cursor-pointer hover:bg-gray-100" onclick="handleSort('Area / Town')"><div class="flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Area / Town <span id="sort-Area / Town" class="sort-icon ml-1">↕</span></div></th>
+                                    <th class="px-4 py-3 text-left cursor-pointer hover:bg-gray-100" onclick="handleSort('Auction ID')"><div class="flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Auction ID <span id="sort-Auction ID" class="sort-icon ml-1">↕</span></div></th>
+                                    <th class="px-4 py-3 text-left cursor-pointer hover:bg-gray-100" onclick="handleSort('Reserve Price')"><div class="flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Reserve Price <span id="sort-Reserve Price" class="sort-icon ml-1">↕</span></div></th>
+                                    <th class="px-4 py-3 text-left cursor-pointer hover:bg-gray-100" onclick="handleSort('Auction Start Date')"><div class="flex items-center text-[11px] font-bold text-gray-500 uppercase tracking-wider">Auction Date <span id="sort-Auction Start Date" class="sort-icon ml-1">↕</span></div></th>
+                                    <th class="px-4 py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider w-40">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body" class="bg-white divide-y divide-gray-100">
+                                <tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">Loading live data from Google Sheets...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 3: PROPERTY DETAIL & MAP VIEW -->
+            <div id="detail-view" class="hidden h-full flex flex-col overflow-y-auto pr-2">
+                <div class="mb-4 flex items-center justify-between">
+                    <button type="button" onclick="backToAuctions()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 shadow-sm">← Back</button>
+                    <div class="flex items-center gap-4">
+                        <h3 id="detail-title" class="text-lg font-bold text-gray-800">Property Details</h3>
+                        <div id="detail-actions" class="flex items-center gap-2 pl-4 border-l border-gray-200"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm space-y-4">
+                        <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2">Spreadsheet Attributes</h4>
+                        <div id="detail-attributes" class="grid grid-cols-2 gap-4 text-sm"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-col">
+                        <div id="propertyMap" class="w-full flex-1 min-h-[350px] rounded-lg border border-gray-200"></div>
+                        <p id="map-subtitle" class="text-xs text-gray-400 mt-2 text-center">💡 Scroll to zoom and inspect the area via OpenStreetMap</p>
+                    </div>
+                </div>
+                
+                <div id="property-gallery" class="hidden bg-white p-6 rounded-lg border border-gray-200 shadow-sm mb-6"></div>
+                <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm mb-6">
+                    <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2 mb-3">Property Description</h4>
+                    <p id="detail-description" class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">N/A</p>
+                </div>
+            </div>
+
+            <!-- VIEW 4: VISIT PLANNER (IFRAME) -->
+            <div id="visit-planner-view" class="hidden h-full flex flex-col relative">
+                <iframe id="planner-iframe" src="field_planner.html" class="w-full h-full border-0 rounded-lg bg-white shadow-sm"></iframe>
+            </div>
+
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbxcyMV25BVns8N1rMXcQuH8RpfvKeqfK-wvpcHDXklnJeIh2Bomb15ZY10rGAdllYVk/exec"; // REPLACE WITH YOUR URL
+
+        // 🚨 FIX 1: Attach global data securely to the window so the Field Planner iframe can read it
+        var globalAuctionData = []; 
+        window.globalAuctionData = []; 
+
+        let userFavorites = new Set(JSON.parse(localStorage.getItem('auction_favorites') || '[]'));
+        let userWip = new Set(JSON.parse(localStorage.getItem('auction_wip') || '[]'));
+        let userRejected = new Set(JSON.parse(localStorage.getItem('auction_rejected') || '[]'));
+        let currentSubView = 'nav-dashboard';
+        let currentMapInstance = null;
+
+        let activeFilters = { 
+            text: "", banks: new Set(), categories: new Set(), statuses: new Set(), zones: new Set(), 
+            dateRange: null, priceRange: {min: null, max: null}, sqftRange: {min: null, max: null} 
+        };
+        let sortConfig = { column: null, direction: 'default' };
+
+        // Utilities
+        function getBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader(); reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]); reader.onerror = error => reject(error);
+            });
+        }
+
+        function extractCoordinates(locString) {
+            if (!locString) return null;
+            let match = locString.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+            if (match) return [parseFloat(match[1]), parseFloat(match[2])];
+            match = locString.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (match) return [parseFloat(match[1]), parseFloat(match[2])];
+            return null;
+        }
+
+        function savePersistentStates() {
+            localStorage.setItem('auction_favorites', JSON.stringify([...userFavorites]));
+            localStorage.setItem('auction_wip', JSON.stringify([...userWip]));
+            localStorage.setItem('auction_rejected', JSON.stringify([...userRejected]));
+        }
+
+        function getSafeCategory(row) {
+            const keys = Object.keys(row);
+            const targetKey = keys.find(k => k.toLowerCase().includes('asset category')) || keys.find(k => k.toLowerCase().includes('property type'));
+            return targetKey && row[targetKey] ? String(row[targetKey]).trim() : "Uncategorized";
+        }
+
+        function getZoneForArea(areaName) {
+            if (!areaName) return "Central";
+            let name = areaName.toLowerCase();
+            const north = ["yelahanka", "hebbal", "rt nagar", "sadashivanagar", "jalahalli", "manyata", "vidyaranyapura", "hesaraghatta", "peenya", "mathikere", "dasanapura", "nelamangala"];
+            const south = ["jayanagar", "jp nagar", "banashankari", "btm layout", "bannerghatta", "kumaraswamy layout", "padmanabhanagar", "kanakapura", "anekal", "begur", "uttarahalli"];
+            const east = ["indiranagar", "whitefield", "marathahalli", "kr puram", "halasuru", "ulsoor", "cv raman nagar", "brookefield", "mahadevapura", "bellandur", "varthur", "sarjapur", "bangarpet", "binnamangala"];
+            const west = ["rajajinagar", "malleshwaram", "basavanagudi", "chamrajpet", "vijayanagar", "nayandahalli", "magadi", "kengeri", "nandini layout", "mahalakshmi layout", "yeshwanthpur", "sheshadripuram"];
+            if (north.some(z => name.includes(z))) return "North";
+            if (south.some(z => name.includes(z))) return "South";
+            if (east.some(z => name.includes(z))) return "East";
+            if (west.some(z => name.includes(z))) return "West";
+            return "Central";
+        }
+
+        function parseCustomDate(dateStr) {
+            if (!dateStr || dateStr === "Not Found" || String(dateStr).trim() === "") return { dateObj: null, dateStr: "Unknown" };
+            let d, m, y; let strDate = String(dateStr);
+            if (strDate.includes("T")) { let dateParts = strDate.split("T")[0].split("-"); d = parseInt(dateParts[1]); m = parseInt(dateParts[2]) - 1; y = parseInt(dateParts[0]); } 
+            else { let cleanStr = strDate.replace(/-/g, '/'); let dateParts = cleanStr.split(" ")[0].split("/"); if (dateParts.length >= 3) { d = parseInt(dateParts[0]); m = parseInt(dateParts[1]) - 1; y = parseInt(dateParts[2]); } }
+            let finalDate = new Date(y, m, d); let displayDate = isNaN(finalDate.getTime()) ? strDate.split(" ")[0] : finalDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            return { dateObj: finalDate, dateStr: displayDate };
+        }
+
+        function getStatusString(dateObj) {
+            if (!dateObj) return "Unknown";
+            const diff = (dateObj - new Date()) / (1000 * 3600 * 24);
+            if (diff < 0) return "Expired"; if (diff <= 2) return "Urgent"; return "Active";
+        }
+
+        // Navigation
+        function toggleSidebarDropdown(e) { e.stopPropagation(); document.getElementById('auctions-menu').classList.toggle('open'); document.getElementById('dropdown-arrow').classList.toggle('rotate-180'); }
+        function toggleCustomPopover(e, popoverId) { e.stopPropagation(); const target = document.getElementById(popoverId); document.querySelectorAll('.popover-menu').forEach(el => { if (el !== target) el.style.display = 'none'; }); if (target) target.style.display = target.style.display === 'block' ? 'none' : 'block'; }
+        function closeAllPopovers(e) { if (!e.target.closest('.popover-menu') && !e.target.closest('button') && !e.target.closest('.sort-icon') && !e.target.closest('.wip-panel')) document.querySelectorAll('.popover-menu').forEach(el => el.style.display = 'none'); }
+        
+        function switchView(viewId, buttonId) {
+            document.getElementById('dashboard-view').classList.add('hidden'); 
+            document.getElementById('auctions-view').classList.add('hidden'); 
+            document.getElementById('detail-view').classList.add('hidden'); 
+            document.getElementById('visit-planner-view').classList.add('hidden'); 
+            
+            document.getElementById(viewId).classList.remove('hidden');
+            if(viewId === 'detail-view') return;
+            currentSubView = buttonId;
+            
+            document.querySelectorAll('.sidebar-item').forEach(btn => { 
+                btn.classList.remove('active', 'text-blue-600', 'bg-blue-50'); 
+                if(btn.id !== 'nav-dashboard' && btn.id !== 'nav-visit') btn.classList.add('text-gray-600'); 
+            });
+            const activeBtn = document.getElementById(buttonId);
+            if(activeBtn) { 
+                if(buttonId === 'nav-dashboard' || buttonId === 'nav-visit') activeBtn.classList.add('active'); 
+                else activeBtn.classList.add('text-blue-600', 'bg-blue-50'); 
+            }
+            
+            const titleMap = { 'nav-dashboard': 'Overview', 'nav-all': 'All Auctions', 'nav-new': 'New Auctions', 'nav-fav': 'Favourites', 'nav-wip': 'Work In Progress', 'nav-rej': 'Rejected', 'nav-visit': 'Visit Planner' };
+            const titleEl = document.getElementById('page-title'); if(titleEl && titleMap[buttonId]) titleEl.innerText = titleMap[buttonId];
+            
+            if (viewId === 'dashboard-view') renderOverviewCharts(); 
+            else if (viewId === 'auctions-view') applyFilters();
+            else if (viewId === 'visit-planner-view') {
+                // 🚨 FIX 2: Added cache-busting timestamp so the iframe physically reloads its memory every time you click the tab
+                const iframe = document.getElementById('planner-iframe');
+                iframe.src = 'field_planner.html?t=' + new Date().getTime(); 
+            }
+        }
+
+        function backToAuctions() { switchView('auctions-view', currentSubView); }
+
+        // Core App Logic
+        function updateKPIs() {
+            let counts = { urgent: 0, active: 0, expired: 0 };
+            globalAuctionData.forEach(row => {
+                const statusStr = getStatusString(parseCustomDate(row["Auction Start Date"]).dateObj);
+                if (statusStr === "Expired" || statusStr === "Unknown") counts.expired++; 
+                else if (statusStr === "Urgent") counts.urgent++; 
+                else if (statusStr === "Active") counts.active++;
+            });
+            let newLeads = globalAuctionData.filter(r => r._isNew);
+            
+            const eNew = document.getElementById("count-new"); if (eNew) eNew.innerText = newLeads.length;
+            const eAct = document.getElementById("count-active"); if (eAct) eAct.innerText = counts.active;
+            const eWip = document.getElementById("count-wip"); if (eWip) eWip.innerText = userWip.size;
+            const eUrg = document.getElementById("count-urgent"); if (eUrg) eUrg.innerText = counts.urgent;
+            const eExp = document.getElementById("count-expired"); if (eExp) eExp.innerText = counts.expired;
+        }
+
+        function renderOverviewCharts() {
+            if (!globalAuctionData.length) return;
+
+            let newLeads = globalAuctionData.filter(r => r._isNew);
+            let processedCount = 0;
+            newLeads.forEach(r => { let aId = String(r["Auction ID"]); if(userFavorites.has(aId) || userWip.has(aId) || userRejected.has(aId)) processedCount++; });
+            let pctProcessed = newLeads.length === 0 ? 0 : Math.round((processedCount / newLeads.length) * 100);
+
+            const gaugeCont = document.getElementById('lead-gauge-container');
+            if (gaugeCont) {
+                gaugeCont.innerHTML = `
+                    <div class="flex items-center w-full gap-6 px-2 mt-4">
+                        <div class="relative w-32 h-32 flex-shrink-0 rounded-full shadow-sm" style="background: conic-gradient(#10b981 0% ${pctProcessed}%, #e2e8f0 ${pctProcessed}% 100%)">
+                            <div class="absolute inset-0 m-auto w-20 h-20 bg-white rounded-full flex flex-col items-center justify-center shadow-inner">
+                                <span class="text-xl font-bold text-gray-800 leading-none">${pctProcessed}%</span>
+                                <span class="text-[9px] text-gray-400 font-bold uppercase mt-1">Processed</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 space-y-3">
+                            <div class="flex justify-between items-center text-xs"><span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><span class="text-gray-700">Processed</span></span><span class="font-bold text-gray-900">${processedCount}</span></div>
+                            <div class="flex justify-between items-center text-xs"><span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-slate-200"></span><span class="text-gray-700">Untouched</span></span><span class="font-bold text-gray-900">${newLeads.length - processedCount}</span></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const now = new Date(); let wipList = [];
+            globalAuctionData.forEach(row => { 
+                let aId = String(row["Auction ID"]);
+                if (userWip.has(aId)) {
+                    let parsed = parseCustomDate(row["Auction Start Date"]); 
+                    if (parsed.dateObj) {
+                        let dLeft = Math.ceil((parsed.dateObj - now) / (1000 * 3600 * 24)); 
+                        wipList.push({ id: aId, area: row["Area / Town"] || "N/A", daysLeft: dLeft, obj: parsed.dateObj }); 
+                    } 
+                }
+            });
+            
+            wipList.sort((a,b) => a.obj - b.obj);
+            const wTC = document.getElementById('wip-tracker-count'); if(wTC) wTC.innerText = `${wipList.length} Active Work-In-Progress`;
+            
+            let trackerHtml = "";
+            if (wipList.length === 0) trackerHtml = `<div class="p-4 text-center text-gray-400 text-xs">No WIP properties active.</div>`;
+            else {
+                wipList.forEach(item => { 
+                    let statusText = item.daysLeft < 0 ? "Expired" : (item.daysLeft === 0 ? "Today" : `${item.daysLeft} Days Left`);
+                    let barColor = item.daysLeft < 0 ? 'bg-gray-400' : (item.daysLeft <= 2 ? 'bg-red-500' : (item.daysLeft <= 7 ? 'bg-amber-400' : 'bg-green-500'));
+                    let textClass = item.daysLeft < 0 ? 'bg-gray-100 text-gray-600' : (item.daysLeft <= 2 ? 'bg-red-100 text-red-700' : 'bg-white text-gray-600 border border-gray-200');
+                    let pct = item.daysLeft < 0 ? 100 : Math.min(100, Math.max(5, (item.daysLeft / 30) * 100)); 
+                    
+                    trackerHtml += `
+                        <div class="flex flex-col p-3 border border-gray-100 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer shadow-sm transition-colors" onclick="openPropertyDetail('${item.id}')">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-bold text-gray-800 text-xs truncate pr-2">#${item.id} - ${item.area}</span>
+                                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${textClass}">${statusText}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                <div class="${barColor} h-1.5 rounded-full" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    `; 
+                });
+            }
+            const wTCont = document.getElementById('wip-tracker-container'); if(wTCont) wTCont.innerHTML = trackerHtml;
+
+            let catCounts = {}; globalAuctionData.forEach(r => { let c = getSafeCategory(r); catCounts[c] = (catCounts[c] || 0) + 1; });
+            let sortedCats = Object.entries(catCounts).sort((a,b) => b[1] - a[1]);
+            let colors = ['#4f46e5', '#0ea5e9', '#38bdf8', '#7dd3fc', '#bae6fd']; let gradStops = [], currPct = 0, legendHtml = ""; let tVol = globalAuctionData.length;
+            sortedCats.slice(0, 4).forEach(([cat, c], i) => { let p = (c / tVol) * 100; gradStops.push(`${colors[i]} ${currPct}% ${currPct + p}%`); currPct += p; legendHtml += `<div class="flex items-center justify-between text-xs mb-1.5"><div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style="background-color: ${colors[i]}"></span><span class="text-gray-700 truncate w-32">${cat}</span></div><span class="font-semibold text-gray-900">${c} (${Math.round(p)}%)</span></div>`; });
+            if (currPct < 100) { gradStops.push(`#f1f5f9 ${currPct}% 100%`); legendHtml += `<div class="flex items-center justify-between text-xs"><div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-gray-200"></span><span class="text-gray-700">Others</span></div><span class="font-semibold text-gray-900">${Math.round(100 - currPct)}%</span></div>`; }
+            const cCat = document.getElementById('chart-categories'); if(cCat) cCat.innerHTML = `<div class="flex items-center w-full gap-6 px-2"><div class="relative w-28 h-28 flex-shrink-0 rounded-full shadow-sm" style="background: conic-gradient(${gradStops.join(', ')})"><div class="absolute inset-0 m-auto w-16 h-16 bg-white rounded-full flex flex-col items-center justify-center shadow-inner"><span class="text-[10px] text-gray-400 font-bold uppercase leading-none">Total</span><span class="text-base font-bold text-gray-800 leading-none mt-1">${tVol}</span></div></div><div class="flex-1 max-h-32 overflow-y-auto">${legendHtml}</div></div>`;
+
+            let zoneCounts = {}; globalAuctionData.forEach(r => { let z = getZoneForArea(r["Area / Town"]); zoneCounts[z] = (zoneCounts[z] || 0) + 1; });
+            let topZones = Object.entries(zoneCounts).sort((a,b) => b[1] - a[1]);
+            const zoneContainer = document.getElementById('chart-zones'); if(zoneContainer) { zoneContainer.innerHTML = ""; topZones.forEach(([z, c]) => { let pct = Math.round((c / topZones[0][1]) * 100); zoneContainer.innerHTML += `<div><div class="flex justify-between text-xs font-medium text-gray-700 mb-1"><span class="truncate pr-2">${z} Zone</span><span class="font-bold text-emerald-600">${c}</span></div><div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden"><div class="bg-emerald-500 h-2 rounded-full transition-all duration-1000" style="width: ${pct}%"></div></div></div>`; }); }
+        }
+
+        // Filtering and Sorting logic
+        function filterPopoverList(input, listId) { const query = input.value.toLowerCase(); const items = document.getElementById(listId).querySelectorAll('label'); items.forEach(item => item.style.display = item.textContent.toLowerCase().includes(query) ? 'flex' : 'none'); }
+        function handleSort(column) { if (sortConfig.column === column) { if (sortConfig.direction === 'default') sortConfig.direction = 'asc'; else if (sortConfig.direction === 'asc') sortConfig.direction = 'desc'; else sortConfig.direction = 'default'; } else { sortConfig.column = column; sortConfig.direction = 'asc'; } updateSortIcons(); applyFilters(); }
+        function updateSortIcons() { document.querySelectorAll('.sort-icon').forEach(icon => { icon.innerText = '↕'; icon.classList.remove('sort-active'); }); if (sortConfig.direction !== 'default' && sortConfig.column) { const activeIcon = document.getElementById(`sort-${sortConfig.column}`); if (activeIcon) { activeIcon.innerText = sortConfig.direction === 'asc' ? '↑' : '↓'; activeIcon.classList.add('sort-active'); } } }
+        function applyRangeFilter(filterObjKey, minId, maxId, popoverId) { const minVal = document.getElementById(minId).value; const maxVal = document.getElementById(maxId).value; activeFilters[filterObjKey] = { min: minVal ? Number(minVal) : null, max: maxVal ? Number(maxVal) : null }; document.getElementById(popoverId).style.display = 'none'; renderFilterTags(); applyFilters(); }
+        function clearRangeFilter(filterObjKey, minId, maxId) { document.getElementById(minId).value = ''; document.getElementById(maxId).value = ''; activeFilters[filterObjKey] = { min: null, max: null }; renderFilterTags(); applyFilters(); }
+        function populateDropdowns(data) { let banks = [...new Set(data.map(item => item["Bank Name"]).filter(Boolean))].sort(); let categories = [...new Set(data.map(item => getSafeCategory(item)).filter(Boolean))].sort(); const bankList = document.getElementById("bankList"); bankList.innerHTML = ""; banks.forEach(b => { bankList.innerHTML += `<label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="${b}" onchange="handleCheckboxChange('banks', '${b.replace(/'/g, "\\\\'")}', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span class="text-gray-700 truncate">${b}</span></label>`; }); const catList = document.getElementById("catList"); catList.innerHTML = ""; categories.forEach(c => { catList.innerHTML += `<label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"><input type="checkbox" value="${c}" onchange="handleCheckboxChange('categories', '${c.replace(/'/g, "\\\\'")}', this.checked)" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"><span class="text-gray-700 truncate">${c}</span></label>`; }); }
+        function handleCheckboxChange(type, value, isChecked) { if (isChecked) activeFilters[type].add(value); else activeFilters[type].delete(value); renderFilterTags(); applyFilters(); }
+        function updateTextSearch(val) { activeFilters.text = val.toLowerCase(); applyFilters(); }
+        function setDatePreset(preset) { const now = new Date(); let from = new Date(), to = new Date(); if (preset === 'week') { from.setDate(now.getDate() - now.getDay()); to.setDate(from.getDate() + 6); } else if (preset === 'month') { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now.getFullYear(), now.getMonth() + 1, 0); } else if (preset === 'quarter') { let q = Math.floor(now.getMonth() / 3); from = new Date(now.getFullYear(), q * 3, 1); to = new Date(now.getFullYear(), q * 3 + 3, 0); } document.getElementById('dateFrom').value = from.toISOString().split('T')[0]; document.getElementById('dateTo').value = to.toISOString().split('T')[0]; }
+        function applyDateFilter() { const from = document.getElementById('dateFrom').value; const to = document.getElementById('dateTo').value; if (from && to) { activeFilters.dateRange = { from: new Date(from), to: new Date(to) }; renderFilterTags(); applyFilters(); document.getElementById('datePopover').style.display = 'none'; } }
+        function clearDateFilter() { document.getElementById('dateFrom').value = ''; document.getElementById('dateTo').value = ''; activeFilters.dateRange = null; renderFilterTags(); applyFilters(); }
+        function removeMultiFilter(type, value) { if (type === 'dateRange') { clearDateFilter(); } else if (type === 'priceRange') { clearRangeFilter('priceRange', 'minPrice', 'maxPrice'); } else if (type === 'sqftRange') { clearRangeFilter('sqftRange', 'minSqft', 'maxSqft'); } else { activeFilters[type].delete(value); document.querySelectorAll(`input[type="checkbox"][value="${value}"]`).forEach(cb => cb.checked = false); renderFilterTags(); applyFilters(); } }
+        function clearAllFilters() { activeFilters = { text: activeFilters.text, banks: new Set(), categories: new Set(), statuses: new Set(), zones: new Set(), dateRange: null, priceRange: {min: null, max: null}, sqftRange: {min: null, max: null}, sort: "none" }; document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false); clearDateFilter(); clearRangeFilter('priceRange', 'minPrice', 'maxPrice'); clearRangeFilter('sqftRange', 'minSqft', 'maxSqft'); }
+        function renderFilterTags() { const container = document.getElementById("filterTags"); container.innerHTML = ""; let hasTags = false; ['banks', 'categories', 'statuses', 'zones'].forEach(type => { activeFilters[type].forEach(val => { container.innerHTML += createTagHtml(type, val, val); hasTags = true; }); }); if (activeFilters.dateRange) { container.innerHTML += createTagHtml('dateRange', 'range', `Date: ${activeFilters.dateRange.from.toLocaleDateString()} - ${activeFilters.dateRange.to.toLocaleDateString()}`); hasTags = true; } if (activeFilters.priceRange.min !== null || activeFilters.priceRange.max !== null) { let pLabel = `Price: ${activeFilters.priceRange.min || 0} to ${activeFilters.priceRange.max || 'Max'}`; container.innerHTML += createTagHtml('priceRange', 'range', pLabel); hasTags = true; } if (activeFilters.sqftRange.min !== null || activeFilters.sqftRange.max !== null) { let sLabel = `SqFt: ${activeFilters.sqftRange.min || 0} to ${activeFilters.sqftRange.max || 'Max'}`; container.innerHTML += createTagHtml('sqftRange', 'range', sLabel); hasTags = true; } if (hasTags) { container.innerHTML += `<button type="button" onclick="clearAllFilters()" class="ml-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-xs font-bold hover:bg-red-100 transition border border-red-100">Clear All</button>`; container.classList.remove('hidden'); } else { container.classList.add('hidden'); } }
+        function createTagHtml(type, value, displayLabel) { const safeValue = typeof value === 'string' ? value.replace(/'/g, "\\'") : value; return `<div class="flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium border border-gray-200 shadow-sm"><span>${displayLabel}</span><button type="button" onclick="removeMultiFilter('${type}', '${safeValue}')" class="text-gray-400 hover:text-red-500 outline-none"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>`; }
+
+        // Table & Details Rendering
+        function renderTable(dataToRender) {
+            const tableBody = document.getElementById("table-body"); tableBody.innerHTML = ""; 
+            document.getElementById("rowCountDisplay").innerText = `Showing ${dataToRender.length} of ${globalAuctionData.length} properties`;
+            if(dataToRender.length === 0) { tableBody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">No properties found matching your criteria.</td></tr>`; return; }
+            const isWipView = (currentSubView === 'nav-wip');
+            dataToRender.forEach(row => {
+                const parsed = parseCustomDate(row["Auction Start Date"]);
+                const statusStr = getStatusString(parsed.dateObj);
+                const auctionId = String(row["Auction ID"]);
+                let sHtml = statusStr === "Expired" ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold badge-expired">Expired</span>` : statusStr === "Urgent" ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold badge-urgent">Urgent</span>` : `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold badge-active">Active</span>`;
+                let rawP = String(row["Reserve Price"] || "0").replace(/[^0-9.-]+/g, ""); let fPrice = rawP > 0 ? "₹" + Number(rawP).toLocaleString('en-IN') : "Price Not Listed";
+                let rawSqft = String(row["Square Feet"] || "0").replace(/[^0-9.-]+/g, ""); let fSqft = rawSqft > 0 ? Number(rawSqft).toLocaleString('en-IN') : "N/A";
+                const isFav = userFavorites.has(auctionId); const isWip = userWip.has(auctionId); const isRej = userRejected.has(auctionId);
+
+                const tr = document.createElement("tr"); tr.id = 'row-' + auctionId; tr.className = "hover:bg-blue-50/40 transition-colors cursor-pointer group"; tr.onclick = () => openPropertyDetail(auctionId);
+                let typeHtml = row["Property Type"] || "N/A"; if (row._isNew) typeHtml += ` <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700">NEW</span>`;
+
+                tr.innerHTML = `
+                    <td class="px-4 py-2 whitespace-nowrap">${sHtml}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-gray-800">${typeHtml}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-gray-800">${fSqft}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-gray-600">${row["Area / Town"] || "Unknown"}</td>
+                    <td class="px-4 py-2 whitespace-nowrap font-medium text-gray-900">#${auctionId}</td>
+                    <td class="px-4 py-2 whitespace-nowrap font-bold text-gray-800">${fPrice}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-gray-800">${parsed.dateStr}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-center space-x-1">
+                        <button type="button" onclick="toggleAction(event, '${auctionId}', 'wip')" title="Work In Progress" class="outline-none transition-transform hover:scale-110"><svg class="w-5 h-5 inline-block ${isWip ? 'text-amber-500 fill-amber-500' : 'text-gray-300 hover:text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012-2m-6 9l2 2 4-4"></path></svg></button>
+                        <button type="button" onclick="toggleAction(event, '${auctionId}', 'fav')" title="Favourite" class="outline-none transition-transform hover:scale-110"><svg class="w-5 h-5 inline-block ${isFav ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg></button>
+                        <button type="button" onclick="toggleAction(event, '${auctionId}', 'rej')" title="Rejected" class="outline-none transition-transform hover:scale-110"><svg class="w-5 h-5 inline-block ${isRej ? 'text-red-500 fill-red-500' : 'text-gray-300 hover:text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-12.728 12.728m0-12.728l12.728 12.728M12 2a10 10 0 110 20 10 10 0 010-20z"></path></svg></button>
+                        ${isWipView ? `<button type="button" onclick="toggleWipExpand(event, '${auctionId}')" title="Edit WIP Workspace" class="outline-none transition-transform hover:scale-110 ml-2 border-l pl-2 border-gray-200"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>` : ''}
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function applyFilters() {
+            let filteredData = globalAuctionData.filter(row => {
+                const auctionIdStr = String(row["Auction ID"]);
+                if (currentSubView === 'nav-new' && !row._isNew) return false;
+                if (currentSubView === 'nav-fav' && !userFavorites.has(auctionIdStr)) return false;
+                if (currentSubView === 'nav-wip' && !userWip.has(auctionIdStr)) return false;
+                if (currentSubView === 'nav-rej' && !userRejected.has(auctionIdStr)) return false;
+
+                const txtMatch = String(row["Area / Town"] + " " + auctionIdStr).toLowerCase().includes(activeFilters.text);
+                const bankMatch = activeFilters.banks.size === 0 || activeFilters.banks.has(row["Bank Name"]);
+                const catMatch = activeFilters.categories.size === 0 || activeFilters.categories.has(getSafeCategory(row));
+                const parsed = parseCustomDate(row["Auction Start Date"]);
+                const statusMatch = activeFilters.statuses.size === 0 || activeFilters.statuses.has(getStatusString(parsed.dateObj));
+                const zoneMatch = activeFilters.zones.size === 0 || activeFilters.zones.has(getZoneForArea(row["Area / Town"]));
+                
+                let dateMatch = true;
+                if (activeFilters.dateRange && row["Auction Start Date"]) { dateMatch = parsed.dateObj && parsed.dateObj >= activeFilters.dateRange.from && parsed.dateObj <= activeFilters.dateRange.to; }
+                let priceMatch = true;
+                if (activeFilters.priceRange.min !== null || activeFilters.priceRange.max !== null) { let val = Number(String(row["Reserve Price"] || "0").replace(/[^0-9.-]+/g, "")); if (activeFilters.priceRange.min !== null && val < activeFilters.priceRange.min) priceMatch = false; if (activeFilters.priceRange.max !== null && val > activeFilters.priceRange.max) priceMatch = false; }
+                let sqftMatch = true;
+                if (activeFilters.sqftRange.min !== null || activeFilters.sqftRange.max !== null) { let val = Number(String(row["Square Feet"] || "0").replace(/[^0-9.-]+/g, "")); if (activeFilters.sqftRange.min !== null && val < activeFilters.sqftRange.min) sqftMatch = false; if (activeFilters.sqftRange.max !== null && val > activeFilters.sqftRange.max) sqftMatch = false; }
+
+                return txtMatch && bankMatch && catMatch && statusMatch && zoneMatch && dateMatch && priceMatch && sqftMatch;
+            });
+
+            if (sortConfig.direction !== 'default' && sortConfig.column) {
+                filteredData.sort((a, b) => {
+                    let valA, valB;
+                    if (['Reserve Price', 'Square Feet'].includes(sortConfig.column)) { valA = Number(String(a[sortConfig.column] || "0").replace(/[^0-9.-]+/g, "")); valB = Number(String(b[sortConfig.column] || "0").replace(/[^0-9.-]+/g, "")); } 
+                    else if (sortConfig.column === 'Auction ID') { valA = Number(String(a[sortConfig.column] || "0")); valB = Number(String(b[sortConfig.column] || "0")); } 
+                    else if (sortConfig.column === 'Auction Start Date') { valA = parseCustomDate(a[sortConfig.column]).dateObj || new Date(0); valB = parseCustomDate(b[sortConfig.column]).dateObj || new Date(0); } 
+                    else if (sortConfig.column === 'Status') { valA = getStatusString(parseCustomDate(a['Auction Start Date']).dateObj); valB = getStatusString(parseCustomDate(b['Auction Start Date']).dateObj); } 
+                    else { valA = String(a[sortConfig.column] || "").toLowerCase(); valB = String(b[sortConfig.column] || "").toLowerCase(); }
+                    if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                    if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
+            renderTable(filteredData);
+        }
+
+        // Action Interactions & Data Enrichment
+        function toggleAction(e, auctionId, actionType) {
+            e.stopPropagation(); let idStr = String(auctionId);
+            const btn = e.currentTarget; const svg = btn ? btn.querySelector('svg') : null;
+            let isAdded = false;
+            
+            if (actionType === 'fav') {
+                if (userFavorites.has(idStr)) { userFavorites.delete(idStr); if(svg && !btn.innerText) { svg.classList.remove('text-yellow-400', 'fill-yellow-400'); svg.classList.add('text-gray-300'); } }
+                else { userFavorites.add(idStr); isAdded = true; if(svg && !btn.innerText) { svg.classList.add('text-yellow-400', 'fill-yellow-400'); svg.classList.remove('text-gray-300'); } }
+            } else if (actionType === 'wip') {
+                if (userWip.has(idStr)) { userWip.delete(idStr); if(svg && !btn.innerText) { svg.classList.remove('text-amber-500', 'fill-amber-500'); svg.classList.add('text-gray-300'); } }
+                else { userWip.add(idStr); isAdded = true; if(svg && !btn.innerText) { svg.classList.add('text-amber-500', 'fill-amber-500'); svg.classList.remove('text-gray-300'); } }
+            } else if (actionType === 'rej') {
+                if (userRejected.has(idStr)) { userRejected.delete(idStr); if(svg && !btn.innerText) { svg.classList.remove('text-red-500', 'fill-red-500'); svg.classList.add('text-gray-300'); } }
+                else { userRejected.add(idStr); isAdded = true; if(svg && !btn.innerText) { svg.classList.add('text-red-500', 'fill-red-500'); svg.classList.remove('text-gray-300'); } }
+            }
+            setTimeout(() => { 
+                savePersistentStates(); 
+                updateKPIs();
+                if (currentSubView === 'nav-dashboard') renderOverviewCharts();
+                else if (currentSubView !== 'nav-visit') applyFilters(); 
+            }, 0);
+
+            fetch(API_URL, {
+                method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ auctionId: idStr, actionType: actionType, isAdded: isAdded })
+            }).catch(err => console.error("Silent sync failed", err));
+        }
+
+        function toggleWipExpand(e, auctionId) {
+            e.stopPropagation();
+            const existingPanel = document.getElementById('wip-panel-' + auctionId);
+            if (existingPanel) { existingPanel.remove(); return; }
+            document.querySelectorAll('.wip-panel').forEach(p => p.remove());
+
+            const tr = document.getElementById('row-' + auctionId);
+            const prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId));
+            if (!prop) return;
+            
+            const panel = document.createElement('tr'); panel.id = 'wip-panel-' + auctionId; panel.className = 'wip-panel expanded'; panel.onclick = (ev) => ev.stopPropagation();
+            
+            panel.innerHTML = `
+                <td colspan="8" class="p-6">
+                    <div class="bg-white border border-blue-200 rounded-xl p-6 shadow-md relative">
+                        <div class="flex items-center justify-between pb-3 border-b border-gray-200 mb-4">
+                            <span class="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">🛠️ WIP Comprehensive Workspace & Data Editor — Property #${auctionId}</span>
+                            <button type="button" onclick="document.getElementById('wip-panel-${auctionId}').remove()" class="text-xs text-gray-400 hover:text-gray-600 font-bold">✕ Close</button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+                            <div><label class="block font-semibold text-gray-600 mb-1">Bank Name</label><input type="text" id="wip-field-Bank Name-${auctionId}" value="${prop['Bank Name'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Borrower Name</label><input type="text" id="wip-field-Borrower Name-${auctionId}" value="${prop['Borrower Name'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Asset Category</label><input type="text" id="wip-field-Asset Category-${auctionId}" value="${getSafeCategory(prop)}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Property Type</label><input type="text" id="wip-field-Property Type-${auctionId}" value="${prop['Property Type'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Area / Town</label><input type="text" id="wip-field-Area / Town-${auctionId}" value="${prop['Area / Town'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Reserve Price (₹)</label><input type="text" id="wip-field-Reserve Price-${auctionId}" value="${prop['Reserve Price'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50 font-bold text-gray-800"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Square Feet</label><input type="text" id="wip-field-Square Feet-${auctionId}" value="${prop['Square Feet'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Property Name / Complex</label><input type="text" id="wip-field-Property Name-${auctionId}" value="${prop['Property Name'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Auction Start Date</label><input type="text" id="wip-field-Auction Start Date-${auctionId}" value="${prop['Auction Start Date'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Application Submission Date</label><input type="text" id="wip-field-Application Submission Date-${auctionId}" value="${prop['Application Submission Date'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Contact Details</label><input type="text" id="wip-field-Contact Details-${auctionId}" value="${prop['Contact Details'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div><label class="block font-semibold text-gray-600 mb-1">Source URL</label><input type="text" id="wip-field-Source URL-${auctionId}" value="${prop['Source URL'] || ''}" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50"></div>
+                            <div class="md:col-span-4"><label class="block font-semibold text-gray-600 mb-1">Exact Map Location (Google Maps Link or Lat, Lng Coordinates)</label><input type="text" id="wip-field-Exact Location-${auctionId}" value="${prop['Exact Location'] || ''}" placeholder="e.g. 12.9716, 77.5946 or https://maps.google.com/..." class="w-full px-2.5 py-1.5 border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 bg-blue-50/40 text-blue-900 font-medium"></div>
+                            <div class="md:col-span-4"><label class="block font-semibold text-gray-600 mb-1">Property Description</label><textarea id="wip-field-Description-${auctionId}" rows="3" class="w-full px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-gray-50 leading-relaxed">${prop['Description'] || ''}</textarea></div>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
+                            <div><label class="block font-semibold text-gray-600 mb-1 text-xs">Upload Site Visit Photos</label><input type="file" id="wip-photos-${auctionId}" multiple accept="image/*" class="text-xs text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"></div>
+                            <button type="button" id="wip-save-btn-${auctionId}" onclick="saveFullWipDetails(event, '${auctionId}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg text-xs transition-colors shadow flex items-center gap-1.5">💾 Save All WIP Details</button>
+                        </div>
+                    </div>
+                </td>
+            `;
+            tr.parentNode.insertBefore(panel, tr.nextSibling);
+        }
+
+        async function saveFullWipDetails(e, auctionId) {
+            e.stopPropagation();
+            const btn = document.getElementById('wip-save-btn-' + auctionId);
+            btn.innerText = "Saving to Drive (Please wait)..."; 
+            btn.disabled = true; btn.classList.add('opacity-50');
+
+            const prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId));
+            if (!prop) return;
+
+            const fields = ["Bank Name", "Borrower Name", "Asset Category", "Property Type", "Area / Town", "Reserve Price", "Square Feet", "Property Name", "Auction Start Date", "Application Submission Date", "Contact Details", "Source URL", "Exact Location", "Description"];
+            let updates = {};
+            fields.forEach(f => { const el = document.getElementById(`wip-field-${f}-${auctionId}`); if (el) updates[f] = el.value.trim(); });
+
+            const fileInput = document.getElementById('wip-photos-' + auctionId);
+            let photosData = [];
+            if (fileInput && fileInput.files.length > 0) {
+                for (let file of fileInput.files) { const base64 = await getBase64(file); photosData.push({ name: file.name, mime: file.type, data: base64 }); }
+            }
+
+            try {
+                await fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_wip_details", auctionId: auctionId, updates: updates, photos: photosData }) });
+                btn.innerText = "Refreshing Data...";
+                
+                const response = await fetch(API_URL);
+                globalAuctionData = await response.json();
+                
+                // 🚨 FIX 1 (Continued): Update the window's global data so the iframe can see the new memory
+                window.globalAuctionData = globalAuctionData;
+
+                userFavorites.clear(); userWip.clear(); userRejected.clear();
+
+                globalAuctionData.forEach(row => {
+                    const backendStage = String(row["Lead Stage"] || "").toUpperCase().trim();
+                    const aId = String(row["Auction ID"]);
+                    if (backendStage === "FAV") userFavorites.add(aId); else if (backendStage === "WIP") userWip.add(aId); else if (backendStage === "REJ") userRejected.add(aId);
+                });
+
+                localStorage.setItem('newly_added_wip', auctionId);
+
+                savePersistentStates(); updateKPIs(); populateDropdowns(globalAuctionData);
+
+                btn.innerText = "Saved!"; btn.classList.remove('opacity-50', 'bg-blue-600', 'hover:bg-blue-700'); btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                setTimeout(() => { const panel = document.getElementById('wip-panel-' + auctionId); if (panel) panel.remove(); applyFilters(); }, 1000);
+            } catch (err) { btn.innerText = "Error Saving!"; btn.disabled = false; btn.classList.remove('opacity-50'); }
+        }
+
+        async function openPropertyDetail(auctionId) {
+            const prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId));
+            if (!prop) return;
+            switchView('detail-view', ''); document.getElementById('page-title').innerText = `Auction #${auctionId} Details`;
+            
+            const attrContainer = document.getElementById('detail-attributes'); attrContainer.innerHTML = "";
+            for (let [k, v] of Object.entries(prop)) {
+                let lower = k.toLowerCase();
+                if (['description', 'source url', 'lead stage', '_isnew', 'exact location', 'photo urls'].includes(lower)) continue;
+                attrContainer.innerHTML += `<div class="border-b pb-2"><span class="block text-xs font-semibold text-gray-400 uppercase">${k}</span><span class="text-gray-800 font-medium">${v || "N/A"}</span></div>`;
+            }
+            
+            const url = prop["Source URL"] || "#";
+            attrContainer.innerHTML += `<div class="border-b pb-2 col-span-2"><span class="block text-xs font-semibold text-gray-400 uppercase">Source Listing</span><a href="${url}" target="_blank" class="text-blue-600 hover:underline font-medium inline-flex items-center gap-1">🔗 Open Listing Source</a></div>`;
+            document.getElementById('detail-description').innerText = prop["Description"] || "No description provided.";
+            
+            const idStr = String(auctionId);
+            const isFav = userFavorites.has(idStr); const isWip = userWip.has(idStr); const isRej = userRejected.has(idStr);
+            document.getElementById('detail-actions').innerHTML = `
+                <button type="button" onclick="handleDetailActionToggle(event, '${idStr}', 'wip')" title="Work In Progress" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${isWip ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}"><svg class="w-4 h-4 ${isWip ? 'fill-amber-500 text-amber-500' : 'text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012-2m-6 9l2 2 4-4"></path></svg> WIP</button>
+                <button type="button" onclick="handleDetailActionToggle(event, '${idStr}', 'fav')" title="Favourite" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${isFav ? 'bg-yellow-50 text-yellow-600 border-yellow-300' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}"><svg class="w-4 h-4 ${isFav ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg> Fav</button>
+                <button type="button" onclick="handleDetailActionToggle(event, '${idStr}', 'rej')" title="Rejected" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${isRej ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}"><svg class="w-4 h-4 ${isRej ? 'fill-red-500 text-red-500' : 'text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-12.728 12.728m0-12.728l12.728 12.728M12 2a10 10 0 110 20 10 10 0 010-20z"></path></svg> Reject</button>
+            `;
+
+            const galleryCont = document.getElementById('property-gallery');
+            const photosStr = prop["Photo URLs"];
+            if (photosStr && photosStr.trim() !== "") {
+                const urls = photosStr.split(',');
+                let phtml = `<h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2 mb-3">Site Visit Photos</h4><div class="grid grid-cols-3 gap-3">`;
+                urls.forEach(u => { if(u.trim()) phtml += `<a href="${u.trim()}" target="_blank"><img src="${u.trim()}" class="w-full h-32 object-cover rounded shadow-sm hover:opacity-80 transition-opacity"></a>`; });
+                phtml += `</div>`;
+                galleryCont.innerHTML = phtml; galleryCont.classList.remove('hidden');
+            } else { galleryCont.classList.add('hidden'); galleryCont.innerHTML = ""; }
+
+            let lat = 12.9716, lng = 77.5946; 
+            let customCoords = extractCoordinates(prop["Exact Location"]);
+            const subtitleEl = document.getElementById('map-subtitle');
+            
+            if (customCoords) {
+                lat = customCoords[0]; lng = customCoords[1];
+                if(subtitleEl) subtitleEl.innerText = "💡 Exact coordinates loaded from WIP details.";
+                loadLeafletMap(lat, lng);
+            } else {
+                if(subtitleEl) subtitleEl.innerText = "💡 Approximate Area/Town shown. Add exact location in WIP.";
+                const areaTown = prop["Area / Town"] || "Bengaluru";
+                try {
+                    let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(areaTown + ", Bengaluru, Karnataka, India")}`);
+                    let geo = await res.json();
+                    if (geo && geo.length > 0) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
+                } catch (e) {}
+                loadLeafletMap(lat, lng);
+            }
+        }
+
+        function loadLeafletMap(lat, lng) {
+            setTimeout(() => {
+                if (currentMapInstance) { currentMapInstance.off(); currentMapInstance.remove(); }
+                currentMapInstance = L.map('propertyMap').setView([lat, lng], 14);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(currentMapInstance);
+                L.marker([lat, lng]).addTo(currentMapInstance);
+                setTimeout(() => { currentMapInstance.invalidateSize(); }, 50);
+            }, 100);
+        }
+
+        function handleDetailActionToggle(e, auctionId, actionType) { toggleAction(e, auctionId, actionType); openPropertyDetail(auctionId); }
+
+        async function fetchAuctionData() {
+            try {
+                const response = await fetch(API_URL);
+                globalAuctionData = await response.json();
+                
+                // 🚨 FIX 1 (Continued): Attach it to the window immediately upon loading the site.
+                window.globalAuctionData = globalAuctionData;
+
+                userFavorites.clear(); userWip.clear(); userRejected.clear();
+                globalAuctionData.forEach(row => {
+                    const backendStage = String(row["Lead Stage"] || "").toUpperCase().trim();
+                    const aId = String(row["Auction ID"]);
+                    if (backendStage === "FAV") userFavorites.add(aId); else if (backendStage === "WIP") userWip.add(aId); else if (backendStage === "REJ") userRejected.add(aId);
+                });
+
+                savePersistentStates(); 
+                updateKPIs();
+                populateDropdowns(globalAuctionData);
+                
+                if (currentSubView === 'nav-dashboard') renderOverviewCharts(); 
+                else if (currentSubView !== 'nav-visit') applyFilters();
+            } catch (error) {
+                console.error("Data Fetch Error:", error);
+                document.getElementById("table-body").innerHTML = `<tr><td colspan="8" class="text-center text-red-500 py-4">Failed to connect to backend. Check your URL. (${error.message})</td></tr>`;
+            }
+        }
+
+        fetchAuctionData();
+    </script>
+</body>
+</html>
