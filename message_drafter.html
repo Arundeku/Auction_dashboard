@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investor Message Drafter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 h-screen font-sans text-sm p-4 overflow-hidden flex gap-6">
+
+    <!-- LEFT SIDE: INPUT & EDIT CONTROLS -->
+    <div class="w-1/2 bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col h-full overflow-y-auto">
+        <h3 class="text-sm font-bold text-gray-800 border-b pb-2 mb-4 flex items-center gap-2">✍️ Investor Presentation Setup</h3>
+        
+        <div class="space-y-4 flex-1">
+            <!-- Property WIP Selection with Sync Button -->
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">Select WIP Property</label>
+                    <div class="flex items-center gap-2">
+                        <span id="sync-status" class="text-[9px] font-bold text-emerald-600 transition-opacity"></span>
+                        <button type="button" onclick="initializeSelector(true)" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2 py-1 rounded transition-colors shadow-sm border border-slate-200">↻ Sync List</button>
+                    </div>
+                </div>
+                <select id="property-selector" onchange="loadPropertyDetails()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white shadow-sm font-medium cursor-pointer">
+                    <option value="">-- Choose an Active WIP Property --</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Customer Name</label>
+                    <input type="text" id="param-custName" value="Investor" oninput="calculateMetrics()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Estimated Market Price (INR)</label>
+                    <input type="text" id="param-estMarket" placeholder="e.g. 10 Cr or 1,50,00,000" oninput="calculateMetrics()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-bold text-emerald-700 focus:ring-1 focus:ring-emerald-500 shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Rental per Month (INR)</label>
+                    <input type="text" id="param-rental" placeholder="e.g. 1.5 Lakhs or 150000" oninput="calculateMetrics()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Configuration / Layout</label>
+                    <input type="text" id="param-config" placeholder="e.g. 5 BHK" oninput="calculateMetrics()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 shadow-sm">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Super Built Up Area</label>
+                    <input type="text" id="param-super" placeholder="e.g. 5100 sq. ft. + Car Parking" oninput="calculateMetrics()" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Carpet Area</label>
+                    <input type="text" id="param-carpet" placeholder="e.g. 6300 sq. ft." oninput="calculateMetrics()" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Common Area</label>
+                    <input type="text" id="param-common" placeholder="e.g. 1017 sq. ft." oninput="calculateMetrics()" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs shadow-sm">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Detailed Location String</label>
+                <input type="text" id="param-location" placeholder="e.g. Hebron Enclave, Halehalli Village, Bidarahalli Hobli" oninput="calculateMetrics()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 shadow-sm">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Building Structural Age</label>
+                <input type="text" id="param-age" placeholder="e.g. 10 years" oninput="calculateMetrics()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 shadow-sm">
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT SIDE: REAL-TIME OUTPUT PREVIEW -->
+    <div class="w-1/2 bg-slate-900 rounded-xl text-slate-100 p-5 flex flex-col h-full shadow-inner relative">
+        <div class="border-b border-slate-800 pb-2 mb-4 flex justify-between items-center">
+            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">📋 Output Preview String</h3>
+            <button id="copy-btn" onclick="copyDrafterMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-4 rounded-lg text-xs transition-colors shadow flex items-center gap-1.5">
+                🖨️ Copy Clean Text
+            </button>
+        </div>
+        
+        <!-- Output Box -->
+        <textarea id="output-preview" readonly class="flex-1 w-full bg-slate-950 text-slate-200 p-4 rounded-lg text-xs leading-relaxed border border-slate-800 focus:outline-none font-mono resize-none whitespace-pre-wrap selection:bg-blue-500 selection:text-white"></textarea>
+    </div>
+
+    <script>
+        let selectedRowData = null;
+        let rawReservePrice = 0;
+        let pollCount = 0;
+
+        // Custom Parser to handle "10 Cr" or "1.5 Lakhs" correctly for math calculations
+        function parseIndianCurrency(str) {
+            if (!str) return 0;
+            let s = String(str).toLowerCase().replace(/,/g, '');
+            let num = parseFloat(s.replace(/[^0-9.-]/g, ''));
+            if (isNaN(num)) return 0;
+            
+            if (s.includes('cr') || s.includes('crore')) num *= 10000000;
+            else if (s.includes('lakh') || s.includes('lac') || s.includes('lakhs')) num *= 100000;
+            else if (s.includes('k')) num *= 1000;
+            
+            return num;
+        }
+
+        // Intelligently load tracking array data straight from the parent dashboard memory
+        function initializeSelector(isManual = false) {
+            try {
+                if (isManual) {
+                    document.getElementById('sync-status').innerText = "Syncing...";
+                    document.getElementById('sync-status').className = "text-[9px] font-bold text-blue-600 transition-opacity";
+                }
+
+                if (window.parent && window.parent.globalAuctionData && window.parent.globalAuctionData.length > 0) {
+                    const data = window.parent.globalAuctionData;
+                    const wipSet = new Set(JSON.parse(localStorage.getItem('auction_wip') || '[]')); 
+                    
+                    // Bulletproof filter to find anything tagged as WIP in sheet OR in local memory
+                    const activeWips = data.filter(r => {
+                        let stage = String(r["Lead Stage"] || "").toUpperCase().trim();
+                        let id = String(r["Auction ID"]);
+                        return stage === "WIP" || wipSet.has(id);
+                    });
+                    
+                    const selector = document.getElementById('property-selector');
+                    selector.innerHTML = '<option value="">-- Choose an Active WIP Property --</option>'; 
+                    
+                    activeWips.forEach(r => {
+                        let opt = document.createElement('option');
+                        opt.value = r["Auction ID"];
+                        opt.innerText = `#${r["Auction ID"]} - ${r["Area / Town"] || 'Unknown Area'}`;
+                        selector.appendChild(opt);
+                    });
+
+                    // Success Feedback
+                    if (isManual || activeWips.length > 0) {
+                        document.getElementById('sync-status').innerText = `✅ Found ${activeWips.length} properties`;
+                        document.getElementById('sync-status').className = "text-[9px] font-bold text-emerald-600 transition-opacity";
+                        setTimeout(() => { document.getElementById('sync-status').innerText = ""; }, 3000);
+                    }
+                } else {
+                    // AUTO-RETRY LOGIC: If parent data is still downloading, wait 500ms and try again
+                    if (pollCount < 10 && !isManual) {
+                        pollCount++;
+                        setTimeout(() => initializeSelector(false), 500);
+                    } else if (isManual) {
+                        document.getElementById('sync-status').innerText = "⚠️ Waiting for Dashboard Data...";
+                        document.getElementById('sync-status').className = "text-[9px] font-bold text-amber-600 transition-opacity";
+                    }
+                }
+            } catch(e) { 
+                console.error("Could not bridge core contextual dataset matrix", e); 
+                if (isManual) {
+                    document.getElementById('sync-status').innerText = "❌ Sync Error";
+                    document.getElementById('sync-status').className = "text-[9px] font-bold text-red-600 transition-opacity";
+                }
+            }
+        }
+
+        function loadPropertyDetails() {
+            const id = document.getElementById('property-selector').value;
+            if(!id) { resetForm(); return; }
+
+            try {
+                const data = window.parent.globalAuctionData;
+                selectedRowData = data.find(r => String(r["Auction ID"]) === String(id));
+                
+                if (selectedRowData) {
+                    rawReservePrice = parseIndianCurrency(selectedRowData["Reserve Price"]);
+                    
+                    // Auto-fill available details directly from sheet memory
+                    document.getElementById('param-config').value = selectedRowData["Property Type"] || "";
+                    document.getElementById('param-location').value = selectedRowData["Exact Location"] || selectedRowData["Area / Town"] || "";
+                    document.getElementById('param-super').value = selectedRowData["Square Feet"] && selectedRowData["Square Feet"] !== "Not Found" ? selectedRowData["Square Feet"] : "";
+                    
+                    calculateMetrics();
+                }
+            } catch (e) { console.error("Error reading matching rows", e); }
+        }
+
+        function calculateMetrics() {
+            if(!selectedRowData) return;
+
+            const estMarket = parseIndianCurrency(document.getElementById('param-estMarket').value);
+            const rentalMonth = parseIndianCurrency(document.getElementById('param-rental').value);
+
+            // Real-time calculation rules
+            let upsidePct = "0%";
+            if (estMarket > 0 && rawReservePrice > 0) {
+                let calcUpside = ((estMarket - rawReservePrice) / rawReservePrice) * 100;
+                upsidePct = Math.round(calcUpside) + "%";
+            }
+
+            let rentalYield = "0.0%";
+            if (rentalMonth > 0 && rawReservePrice > 0) {
+                let calcYield = ((rentalMonth * 12) / rawReservePrice) * 100;
+                rentalYield = calcYield.toFixed(1) + "%";
+            }
+
+            liveUpdateMessage(upsidePct, rentalYield);
+        }
+
+        function liveUpdateMessage(upside = "0%", yieldPct = "0.0%") {
+            if(!selectedRowData) {
+                document.getElementById('output-preview').value = "Choose an active property lead on the left to begin drafting presentation messaging matrices.";
+                return;
+            }
+
+            const custName = document.getElementById('param-custName').value || "[Customer Name]";
+            const estMarketRaw = document.getElementById('param-estMarket').value || "10 Cr";
+            const rentalRaw = document.getElementById('param-rental').value || "~1.5 Lakhs";
+            const config = document.getElementById('param-config').value || "5 BHK";
+            const superArea = document.getElementById('param-super').value || "5100 sq. ft. + Car Parking";
+            const carpetArea = document.getElementById('param-carpet').value || "6300 sq. ft.";
+            const commonArea = document.getElementById('param-common').value || "1017 sq. ft.";
+            const locationStr = document.getElementById('param-location').value || "Hebron Enclave, Halehalli Village, Bidarahalli Hobli";
+            const structuralAge = document.getElementById('param-age').value || "10 years";
+
+            let fReservePrice = selectedRowData["Reserve Price"] ? String(selectedRowData["Reserve Price"]).trim() : "N/A";
+            let pType = selectedRowData["Property Type"] || "Residential";
+            let photoUrlStr = selectedRowData["Photo URLs"] ? String(selectedRowData["Photo URLs"]).split(',')[0] : "N/A";
+            
+            // Intelligently build Map Link
+            let mapUrlStr = selectedRowData["Exact Location"] || "N/A";
+            if (mapUrlStr !== "N/A" && !mapUrlStr.includes("http")) {
+                // If it's just raw coordinates, convert it to a clickable Google Maps link
+                mapUrlStr = `https://www.google.com/maps/search/?api=1&query=${mapUrlStr.replace(/\s/g, '')}`;
+            }
+
+            // Format message template string with explicit structural line breaks
+            let msg = `Hi ${custName} 👋,\n\n`;
+            msg += `There is a prime ${pType} property opportunity in Bengaluru that might be of great interest to you. 🏢✨\n\n`;
+            msg += `Here are the key metrics and details for your review:\n\n`;
+            msg += `Financials:\n`;
+            msg += `Reserve Price (INR): ${fReservePrice}\n`;
+            msg += `Estimated Market Price (INR): ${estMarketRaw}\n`;
+            msg += `Upside: ${upside}\n`;
+            msg += `Rental per Month: ${rentalRaw}\n`;
+            msg += `Rental Yield (%): ${yieldPct}\n\n`;
+            msg += `📍 Property Overview:\n`;
+            msg += `Location: ${locationStr}\n`;
+            msg += `Type: ${pType}\n`;
+            msg += `Configuration: ${config}\n`;
+            msg += `Super Built up: ${superArea}\n`;
+            msg += `Carpet: ${carpetArea}\n`;
+            msg += `Common Area: ${commonArea}\n`;
+            msg += `Building Age: ${structuralAge}\n\n`;
+            msg += `If you'd like to explore this further, let us know and we can schedule a call accordingly.\n`;
+            msg += `Let me know what you think! 🤝\n\n`;
+            msg += `Photos: ${photoUrlStr}\n`;
+            msg += `Location: ${mapUrlStr}`;
+
+            document.getElementById('output-preview').value = msg;
+        }
+
+        function copyDrafterMessage() {
+            const textarea = document.getElementById('output-preview');
+            textarea.select();
+            document.execCommand('copy');
+
+            const btn = document.getElementById('copy-btn');
+            btn.innerText = "✅ Copied Text!";
+            btn.className = "bg-emerald-600 text-white font-bold py-1.5 px-4 rounded-lg text-xs transition-colors shadow flex items-center gap-1.5";
+            
+            setTimeout(() => {
+                btn.innerText = "🖨️ Copy Clean Text";
+                btn.className = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-4 rounded-lg text-xs transition-colors shadow flex items-center gap-1.5";
+            }, 1800);
+        }
+
+        function resetForm() {
+            selectedRowData = null;
+            rawReservePrice = 0;
+            document.getElementById('output-preview').value = "Choose an active property lead on the left to begin drafting presentation messaging matrices.";
+        }
+
+        // Hydrate list options on startup
+        initializeSelector();
+    </script>
+</body>
+</html>
