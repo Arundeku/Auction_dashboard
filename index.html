@@ -7,9 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        .badge-upcoming { background-color: #DBEAFE; color: #1E40AF; } /* Blue */
-        .badge-active { background-color: #DCFCE7; color: #166534; }   /* Green */
-        .badge-expired { background-color: #F3F4F6; color: #374151; }  /* Gray */
+        .badge-upcoming { background-color: #DBEAFE; color: #1E40AF; } 
+        .badge-active { background-color: #DCFCE7; color: #166534; }   
+        .badge-expired { background-color: #F3F4F6; color: #374151; }  
         
         .dropdown-content { transition: max-height 0.3s ease-in-out; overflow: hidden; max-height: 0; }
         .dropdown-content.open { max-height: 250px; }
@@ -21,29 +21,43 @@
 
         .popover-menu { display: none; position: absolute; z-index: 99999; background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); width: 280px; padding: 12px; top: 100%; margin-top: 4px; left: 0; }
         
-        .sidebar-item { transition: all 0.2s ease-in-out; }
-        .sidebar-item.active { background-color: #111827; color: #ffffff; border-radius: 9999px; }
+        .sidebar-item { transition: all 0.2s ease-in-out; color: #4b5563; }
+        .sidebar-item:hover:not(.active) { background-color: #f3f4f6; color: #111827; }
+        .sidebar-item.active { background-color: #111827 !important; color: #ffffff !important; border-radius: 9999px; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         
         .sort-icon { display: inline-block; width: 14px; opacity: 0.3; transition: all 0.2s; }
         .sort-active { opacity: 1; color: #2563eb; }
+
+        /* DEAL ROOM VIEW/EDIT ENGINE CSS */
+        .deal-input { border: 1px solid transparent; background: transparent; pointer-events: none; outline: none; transition: all 0.2s; }
+        .deal-select { appearance: none; border: 1px solid transparent; background: transparent; pointer-events: none; outline: none; padding-right: 0 !important; cursor: default; transition: all 0.2s; }
+        .deal-select::-ms-expand { display: none; }
+        .deal-delete-btn { display: none; }
+        .edit-only-ui { display: none !important; }
+        
+        .is-editing .deal-input { border: 1px solid #d1d5db; background: #ffffff; pointer-events: auto; padding: 4px 8px; border-radius: 4px; }
+        .is-editing .deal-select { appearance: auto; border: 1px solid #d1d5db; background: #ffffff; pointer-events: auto; padding: 4px 28px 4px 8px !important; border-radius: 4px; cursor: pointer; }
+        .is-editing .deal-delete-btn { display: block; }
+        .is-editing .edit-only-ui { display: flex !important; }
+        .is-editing .view-only-ui { display: none !important; }
     </style>
 </head>
 <body class="bg-gray-50 flex h-screen font-sans text-sm overflow-hidden" onclick="closeAllPopovers(event)">
 
     <!-- SIDEBAR -->
-    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col h-full flex-shrink-0">
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col h-full flex-shrink-0 z-20">
         <div class="p-6 border-b border-gray-200">
             <h1 class="text-xl font-bold text-gray-800 flex items-center">🏢 allauctions</h1>
         </div>
         
-        <nav class="flex-1 p-4 space-y-1 text-gray-600 overflow-y-auto">
+        <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
             <button type="button" onclick="switchView('dashboard-view', 'nav-dashboard')" id="nav-dashboard" class="sidebar-item w-full text-left block px-4 py-2.5 rounded-lg font-medium active">📊 Overview</button>
             
             <div>
-                <button type="button" onclick="toggleSidebarDropdown(event)" class="w-full text-left flex justify-between items-center px-4 py-2.5 rounded-lg hover:bg-gray-100 font-medium text-gray-700 transition-colors">
+                <button type="button" onclick="toggleSidebarDropdown(event)" class="sidebar-item w-full text-left flex justify-between items-center px-4 py-2.5 rounded-lg font-medium">
                     <span>📑 Auctions</span>
                     <svg id="dropdown-arrow" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
@@ -56,9 +70,7 @@
                 </div>
             </div>
 
-            <!-- 🚨 NEW: Interested Investors Tab -->
-            <button type="button" onclick="switchView('auctions-view', 'nav-investors')" id="nav-investors" class="sidebar-item w-full text-left block px-4 py-2.5 mt-1 rounded-lg font-medium text-indigo-700 hover:bg-indigo-50 transition-colors">🤝 Interested Investors</button>
-
+            <button type="button" onclick="switchView('auctions-view', 'nav-investors')" id="nav-investors" class="sidebar-item w-full text-left block px-4 py-2.5 mt-1 rounded-lg font-medium">🤝 Interested Investors</button>
             <button type="button" onclick="switchView('visit-planner-view', 'nav-visit')" id="nav-visit" class="sidebar-item w-full text-left block px-4 py-2.5 mt-2 rounded-lg font-medium">🗺️ Visit Planner</button>
             <button type="button" onclick="switchView('message-drafter-view', 'nav-draft')" id="nav-visit-draft" class="sidebar-item w-full text-left block px-4 py-2.5 mt-1 rounded-lg font-medium">✍️ Message Drafter</button>
         </nav>
@@ -114,20 +126,9 @@
                         <div id="lead-gauge-container" class="flex-1 flex flex-col items-center justify-center"></div>
                     </div>
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                        <h4 class="text-sm font-bold text-gray-800 mb-4 flex items-center justify-between"><span>🏷️ Asset Category Share</span><span class="text-xs text-gray-400 font-normal">Market Distribution</span></h4>
-                        <div id="chart-categories" class="flex-1 flex items-center justify-center"></div>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                        <h4 class="text-sm font-bold text-gray-800 mb-4 flex items-center justify-between"><span>📍 Geographic Zone Volume</span><span class="text-xs text-gray-400 font-normal">By Area Groupings</span></h4>
-                        <div id="chart-zones" class="space-y-3 flex-1 flex flex-col justify-center"></div>
-                    </div>
-                </div>
             </div>
 
-            <!-- VIEW 2: TABLES COMBINED VIEW (Auctions + Investors) -->
+            <!-- VIEW 2: TABLES COMBINED VIEW -->
             <div id="auctions-view" class="hidden h-full flex flex-col">
                 <div class="flex flex-col gap-3 mb-4 flex-shrink-0" style="overflow: visible !important;">
                     <div class="flex gap-2 items-center relative flex-wrap" style="overflow: visible !important;">
@@ -176,23 +177,24 @@
                     </div>
                 </div>
 
-                <!-- 🚨 NEW: INTERESTED INVESTORS TABLE CONTAINER -->
+                <!-- 🚨 INTERESTED INVESTORS TABLE -->
                 <div id="investors-table-container" class="bg-white rounded-lg border border-gray-200 shadow-sm flex-1 overflow-hidden flex flex-col relative hidden">
                     <div class="table-scroll overflow-auto flex-1">
-                        <table class="min-w-full divide-y divide-gray-200 relative">
-                            <thead class="bg-gray-50 sticky top-0 z-20 shadow-sm select-none">
+                        <table class="min-w-full relative">
+                            <thead class="bg-gray-50 sticky top-0 z-20 shadow-sm select-none border-b border-gray-200">
                                 <tr>
                                     <th class="px-4 py-3 text-left w-16"><div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Status</div></th>
-                                    <th class="px-4 py-3 text-left"><div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Property Type</div></th>
+                                    <th class="px-4 py-3 text-left"><div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Borrower Name</div></th>
                                     <th class="px-4 py-3 text-left"><div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Area / Town</div></th>
                                     <th class="px-4 py-3 text-left"><div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Reserve Price</div></th>
+                                    <th class="px-4 py-3 text-center"><div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Delta (%)</div></th>
                                     <th class="px-4 py-3 text-left"><div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Yield (%)</div></th>
-                                    <th class="px-4 py-3 text-left bg-indigo-50"><div class="text-xs font-bold text-indigo-700 uppercase tracking-wider">Total Raised (₹)</div></th>
-                                    <th class="px-4 py-3 text-center sticky right-0 bg-gray-50 z-20 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]"><div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Deal Room</div></th>
+                                    <th class="px-4 py-3 text-center bg-gray-50/50"><div class="text-xs font-bold text-indigo-700 uppercase tracking-wider">Deal Summary</div></th>
+                                    <th class="px-4 py-3 text-center sticky right-0 bg-gray-50 z-20 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]"><div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Action</div></th>
                                 </tr>
                             </thead>
-                            <tbody id="investors-table-body" class="bg-white divide-y divide-gray-100">
-                                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">Loading live data from Google Sheets...</td></tr>
+                            <tbody id="investors-table-body" class="bg-white">
+                                <tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">Loading live data from Google Sheets...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -201,7 +203,7 @@
             </div>
 
             <!-- VIEW 3: PROPERTY DETAIL / EDIT VIEW -->
-            <div id="detail-view" class="hidden h-full flex flex-col overflow-y-auto pr-2 relative">
+            <div id="detail-view" class="hidden h-full flex flex-col overflow-y-auto overflow-x-hidden pr-2 relative">
                 <div class="sticky top-0 z-[1000] flex items-center justify-between bg-white/95 backdrop-blur-md -mx-6 px-6 -mt-6 py-4 mb-6 border-b border-gray-200 shadow-sm transition-all duration-300" id="detail-sticky-header">
                     <button type="button" onclick="backToAuctions()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 shadow-sm">← Back</button>
                     <div class="flex items-center gap-4">
@@ -215,8 +217,8 @@
                         <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2 mb-4" id="detail-attributes-title">Spreadsheet Attributes</h4>
                         <div id="detail-attributes" class="grid grid-cols-2 gap-4 text-sm"></div>
                     </div>
-                    <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-col relative">
-                        <div id="propertyMap" class="w-full h-[400px] rounded-lg border border-gray-200 z-0"></div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex flex-col relative z-0">
+                        <div id="propertyMap" class="w-full h-[400px] rounded-lg border border-gray-200 z-0 bg-gray-100 flex items-center justify-center text-gray-400">Loading Map...</div>
                         <p id="map-subtitle" class="text-xs text-gray-400 mt-2 text-center">💡 Scroll to zoom and inspect the area via OpenStreetMap</p>
                     </div>
                 </div>
@@ -225,47 +227,49 @@
                 
                 <div id="detail-upload-section" class="hidden bg-white p-6 rounded-lg border border-gray-200 shadow-sm mb-6">
                     <label class="block font-semibold text-gray-600 mb-2 text-xs">Upload Site Visit Photos & Videos</label>
-                    <input type="file" id="detail-photos" multiple accept="image/*,video/*" class="text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors w-full border border-dashed border-blue-200 p-4 rounded-lg bg-blue-50/20 cursor-pointer">
+                    <input type="file" id="detail-photos" multiple accept="image/*,video/*" class="text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 transition-colors w-full border border-dashed border-gray-300 p-4 rounded-lg bg-gray-50/50 cursor-pointer">
                 </div>
 
                 <div id="description-wrapper" class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm mb-6"></div>
             </div>
 
             <!-- 🚨 VIEW 4: SYNDICATE DEAL ROOM PANEL -->
-            <div id="syndicate-detail-view" class="hidden h-full flex flex-col overflow-y-auto pr-2 relative">
-                <div class="sticky top-0 z-[1000] flex items-center justify-between bg-white/95 backdrop-blur-md -mx-6 px-6 -mt-6 py-4 mb-6 border-b border-gray-200 shadow-sm">
-                    <button type="button" onclick="switchView('auctions-view', 'nav-investors')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 shadow-sm">← Back to Syndicates</button>
-                    <div class="flex items-center gap-4">
-                        <h3 id="syndicate-detail-title" class="text-lg font-bold text-indigo-800">Deal Room</h3>
-                        <button type="button" id="save-syndicate-btn" onclick="saveSyndicateData()" class="px-4 py-2 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow flex items-center gap-1.5 transition-colors">💾 Save Deal Room</button>
+            <div id="syndicate-detail-view" class="hidden h-full flex flex-col overflow-y-auto overflow-x-hidden pr-2 relative">
+                
+                <div class="sticky top-0 z-[1000] flex flex-col bg-white/95 backdrop-blur-md -mx-6 px-6 -mt-6 pt-4 pb-3 mb-6 border-b border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-2">
+                        <button type="button" onclick="switchView('auctions-view', 'nav-investors')" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 shadow-sm">← Back to Deals</button>
+                        <div class="flex items-center gap-4">
+                            <h3 id="syndicate-detail-title" class="text-lg font-bold text-indigo-800">Deal Room</h3>
+                            <button type="button" id="save-syndicate-btn" onclick="saveSyndicateData()" class="px-4 py-2 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow flex items-center gap-1.5 transition-colors">💾 Save Deal Room</button>
+                        </div>
                     </div>
+                    <div id="syndicate-property-info" class="flex items-center gap-6 pt-2 border-t border-gray-100/60 mt-1"></div>
                 </div>
 
                 <div class="grid grid-cols-1 gap-6 mb-6">
-                    <!-- Progress Card -->
-                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                        <div class="flex justify-between items-end mb-2">
-                            <div>
-                                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Funding Goal Progress</h4>
-                                <div class="text-2xl font-black text-gray-800" id="syn-progress-text">₹0 / ₹0 Goal</div>
-                            </div>
-                            <div class="text-3xl font-black text-indigo-600" id="syn-progress-pct">0%</div>
+                    <!-- Clean Counters Top -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-6 bg-indigo-50 rounded-xl border border-indigo-100 flex flex-col justify-center shadow-sm">
+                            <h4 class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-2">Partnerships Created</h4>
+                            <div class="text-3xl font-black text-indigo-700" id="syn-partnerships-count">0</div>
                         </div>
-                        <div class="w-full bg-gray-100 rounded-full h-4 overflow-hidden mt-3 border border-gray-200">
-                            <div id="syn-progress-bar" class="bg-indigo-500 h-4 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                        <div class="p-6 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col justify-center shadow-sm">
+                            <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-2">Solo Funders Ready</h4>
+                            <div class="text-3xl font-black text-emerald-700" id="syn-solo-count">0</div>
                         </div>
                     </div>
 
-                    <!-- Investor Roster -->
+                    <!-- Thin Deals Roster -->
                     <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
                         <div class="flex justify-between items-center border-b pb-3 mb-4">
-                            <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">🤝 Investor Roster</h4>
-                            <button type="button" onclick="addInvestorRow()" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-900 text-white text-xs font-bold rounded flex items-center gap-1 transition-colors">➕ Add Investor</button>
+                            <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">🏆 Offers & Syndicates</h4>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="addPartnershipDeal()" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded flex items-center gap-1 transition-colors">➕ New Partnership</button>
+                                <button type="button" onclick="addSoloDeal()" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold rounded flex items-center gap-1 transition-colors">➕ New Solo Offer</button>
+                            </div>
                         </div>
-                        
-                        <div id="syndicate-roster" class="space-y-3">
-                            <!-- Rows dynamically injected here -->
-                        </div>
+                        <div id="syndicate-roster"></div>
                     </div>
                 </div>
             </div>
@@ -279,7 +283,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbxcyMV25BVns8N1rMXcQuH8RpfvKeqfK-wvpcHDXklnJeIh2Bomb15ZY10rGAdllYVk/exec"; // REPLACE WITH YOUR URL
+        const API_URL = "https://script.google.com/macros/s/YOUR_URL_HERE/exec"; // 🚨 REPLACE WITH YOUR DEPLOYED WEB APP URL
 
         var globalAuctionData = []; 
         window.globalAuctionData = []; 
@@ -300,23 +304,15 @@
         function getBase64(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result.split(',')[1]); reader.onerror = error => reject(error); }); }
 
         function parseIndianCurrency(str) {
-            if (!str) return 0;
-            let s = String(str).toLowerCase().replace(/,/g, '');
-            let num = parseFloat(s.replace(/[^0-9.-]/g, ''));
+            if (!str) return 0; let s = String(str).toLowerCase().replace(/,/g, ''); let num = parseFloat(s.replace(/[^0-9.-]/g, ''));
             if (isNaN(num)) return 0;
-            if (s.includes('cr') || s.includes('crore')) num *= 10000000;
-            else if (s.includes('lakh') || s.includes('lac') || s.includes('lakhs')) num *= 100000;
-            else if (s.includes('k')) num *= 1000;
+            if (s.includes('cr') || s.includes('crore')) num *= 10000000; else if (s.includes('lakh') || s.includes('lac') || s.includes('lakhs')) num *= 100000; else if (s.includes('k')) num *= 1000;
             return num;
         }
 
         function formatIndianCurrency(num) {
-            if (!num || isNaN(num) || num === 0) return "";
-            let x = Math.round(num).toString();
-            let lastThree = x.substring(x.length - 3);
-            let otherBits = x.substring(0, x.length - 3);
-            if (otherBits != '') lastThree = ',' + lastThree;
-            return otherBits.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
+            if (!num || isNaN(num) || num === 0) return ""; let x = Math.round(num).toString(); let lastThree = x.substring(x.length - 3); let otherBits = x.substring(0, x.length - 3);
+            if (otherBits != '') lastThree = ',' + lastThree; return otherBits.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
         }
 
         function extractCoordinates(locString) {
@@ -339,8 +335,7 @@
         }
 
         function getZoneForArea(areaName) {
-            if (!areaName) return "Central";
-            let name = areaName.toLowerCase();
+            if (!areaName) return "Central"; let name = areaName.toLowerCase();
             const north = ["yelahanka", "hebbal", "rt nagar", "sadashivanagar", "jalahalli", "manyata", "vidyaranyapura", "hesaraghatta", "peenya", "mathikere", "dasanapura", "nelamangala"];
             const south = ["jayanagar", "jp nagar", "banashankari", "btm layout", "bannerghatta", "kumaraswamy layout", "padmanabhanagar", "kanakapura", "anekal", "begur", "uttarahalli"];
             const east = ["indiranagar", "whitefield", "marathahalli", "kr puram", "halasuru", "ulsoor", "cv raman nagar", "brookefield", "mahadevapura", "bellandur", "varthur", "sarjapur", "bangarpet", "binnamangala"];
@@ -373,54 +368,44 @@
             return "Active";
         }
 
-        // Navigation
+        // 🚨 UPGRADED: FILTER ISOLATION ENGINE
+        function clearFiltersUI() {
+            activeFilters = { text: "", banks: new Set(), categories: new Set(), statuses: new Set(), zones: new Set(), dateRange: null, priceRange: {min: null, max: null}, sqftRange: {min: null, max: null} };
+            document.getElementById('searchInput').value = '';
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            document.getElementById('dateFrom').value = ''; document.getElementById('dateTo').value = '';
+            document.getElementById('minPrice').value = ''; document.getElementById('maxPrice').value = '';
+            document.getElementById('minSqft').value = ''; document.getElementById('maxSqft').value = '';
+            document.getElementById("filterTags").innerHTML = ""; document.getElementById("filterTags").classList.add('hidden');
+        }
+
         function toggleSidebarDropdown(e) { e.stopPropagation(); document.getElementById('auctions-menu').classList.toggle('open'); document.getElementById('dropdown-arrow').classList.toggle('rotate-180'); }
         function toggleCustomPopover(e, popoverId) { e.stopPropagation(); const target = document.getElementById(popoverId); document.querySelectorAll('.popover-menu').forEach(el => { if (el !== target) el.style.display = 'none'; }); if (target) target.style.display = target.style.display === 'block' ? 'none' : 'block'; }
         function closeAllPopovers(e) { if (!e.target.closest('.popover-menu') && !e.target.closest('button') && !e.target.closest('.sort-icon')) document.querySelectorAll('.popover-menu').forEach(el => el.style.display = 'none'); }
         
         function switchView(viewId, buttonId) {
-            document.getElementById('dashboard-view').classList.add('hidden'); 
-            document.getElementById('auctions-view').classList.add('hidden'); 
-            document.getElementById('detail-view').classList.add('hidden'); 
-            document.getElementById('syndicate-detail-view').classList.add('hidden'); 
-            document.getElementById('visit-planner-view').classList.add('hidden'); 
-            document.getElementById('message-drafter-view').classList.add('hidden'); 
-            
+            document.getElementById('dashboard-view').classList.add('hidden'); document.getElementById('auctions-view').classList.add('hidden'); document.getElementById('detail-view').classList.add('hidden'); document.getElementById('syndicate-detail-view').classList.add('hidden'); document.getElementById('visit-planner-view').classList.add('hidden'); document.getElementById('message-drafter-view').classList.add('hidden'); 
             document.getElementById(viewId).classList.remove('hidden');
             if(viewId === 'detail-view' || viewId === 'syndicate-detail-view') return;
             
-            currentSubView = buttonId;
-            isEditMode = false;
+            // ISOLATE FILTERS PER TAB
+            if (currentSubView !== buttonId) { clearFiltersUI(); }
             
-            document.querySelectorAll('.sidebar-item').forEach(btn => { 
-                btn.classList.remove('active', 'text-blue-600', 'bg-blue-50', 'text-indigo-700', 'bg-indigo-50'); 
-                if(btn.id !== 'nav-dashboard' && btn.id !== 'nav-visit' && btn.id !== 'nav-visit-draft' && btn.id !== 'nav-investors') btn.classList.add('text-gray-600'); 
-            });
+            currentSubView = buttonId; isEditMode = false;
+            
+            document.querySelectorAll('.sidebar-item').forEach(btn => { btn.classList.remove('active'); });
             const activeBtn = document.getElementById(buttonId);
-            if(activeBtn) { 
-                if(buttonId === 'nav-dashboard' || buttonId === 'nav-visit' || buttonId === 'nav-visit-draft') activeBtn.classList.add('active'); 
-                else if(buttonId === 'nav-investors') activeBtn.classList.add('text-indigo-700', 'bg-indigo-50');
-                else activeBtn.classList.add('text-blue-600', 'bg-blue-50'); 
-            }
-            
+            if(activeBtn) { activeBtn.classList.add('active'); }
+
             const titleMap = { 'nav-dashboard': 'Overview', 'nav-all': 'All Auctions', 'nav-new': 'New Auctions', 'nav-fav': 'Favourites', 'nav-wip': 'Work In Progress', 'nav-rej': 'Rejected', 'nav-investors': 'Interested Investors', 'nav-visit': 'Visit Planner', 'nav-draft': 'Message Drafter' };
             const titleEl = document.getElementById('page-title'); if(titleEl && titleMap[buttonId]) titleEl.innerText = titleMap[buttonId];
             
-            // 🚨 UI Toggles for Investor Tab vs Standard Auction Tab
             if(viewId === 'auctions-view') {
-                if(buttonId === 'nav-investors') {
-                    document.getElementById('auctions-table-container').classList.add('hidden');
-                    document.getElementById('investors-table-container').classList.remove('hidden');
-                } else {
-                    document.getElementById('auctions-table-container').classList.remove('hidden');
-                    document.getElementById('investors-table-container').classList.add('hidden');
-                }
+                if(buttonId === 'nav-investors') { document.getElementById('auctions-table-container').classList.add('hidden'); document.getElementById('investors-table-container').classList.remove('hidden'); } 
+                else { document.getElementById('auctions-table-container').classList.remove('hidden'); document.getElementById('investors-table-container').classList.add('hidden'); }
             }
 
-            if (viewId === 'dashboard-view') renderOverviewCharts(); 
-            else if (viewId === 'auctions-view') applyFilters();
-            else if (viewId === 'visit-planner-view') { document.getElementById('planner-iframe').src = 'field_planner.html?t=' + new Date().getTime(); }
-            else if (viewId === 'message-drafter-view') { document.getElementById('drafter-iframe').src = 'message_drafter.html?t=' + new Date().getTime(); }
+            if (viewId === 'dashboard-view') renderOverviewCharts(); else if (viewId === 'auctions-view') applyFilters(); else if (viewId === 'visit-planner-view') { document.getElementById('planner-iframe').src = 'field_planner.html?t=' + new Date().getTime(); } else if (viewId === 'message-drafter-view') { document.getElementById('drafter-iframe').src = 'message_drafter.html?t=' + new Date().getTime(); }
         }
 
         function backToAuctions() { switchView('auctions-view', currentSubView); }
@@ -429,9 +414,7 @@
             let counts = { upcoming: 0, active: 0, expired: 0 };
             globalAuctionData.forEach(row => {
                 const statusStr = getStatusDetails(row["Application Submission Date"], row["Auction Start Date"]);
-                if (statusStr === "Expired" || statusStr === "Unknown") counts.expired++; 
-                else if (statusStr === "Upcoming") counts.upcoming++; 
-                else if (statusStr === "Active") counts.active++;
+                if (statusStr === "Expired" || statusStr === "Unknown") counts.expired++; else if (statusStr === "Upcoming") counts.upcoming++; else if (statusStr === "Active") counts.active++;
             });
             let newLeads = globalAuctionData.filter(r => r._isNew);
             const eNew = document.getElementById("count-new"); if (eNew) eNew.innerText = newLeads.length;
@@ -443,8 +426,7 @@
 
         function renderOverviewCharts() {
             if (!globalAuctionData.length) return;
-            let newLeads = globalAuctionData.filter(r => r._isNew);
-            let processedCount = 0;
+            let newLeads = globalAuctionData.filter(r => r._isNew); let processedCount = 0;
             newLeads.forEach(r => { let aId = String(r["Auction ID"]); if(userFavorites.has(aId) || userWip.has(aId) || userRejected.has(aId)) processedCount++; });
             let pctProcessed = newLeads.length === 0 ? 0 : Math.round((processedCount / newLeads.length) * 100);
 
@@ -471,7 +453,6 @@
                     if (parsed.dateObj) { let dLeft = Math.ceil((parsed.dateObj - now) / (1000 * 3600 * 24)); wipList.push({ id: aId, area: row["Area / Town"] || "N/A", daysLeft: dLeft, obj: parsed.dateObj }); } 
                 }
             });
-            
             wipList.sort((a,b) => a.obj - b.obj);
             const wTC = document.getElementById('wip-tracker-count'); if(wTC) wTC.innerText = `${wipList.length} Active Work-In-Progress`;
             
@@ -512,114 +493,118 @@
         function applyDateFilter() { const from = document.getElementById('dateFrom').value; const to = document.getElementById('dateTo').value; if (from && to) { activeFilters.dateRange = { from: new Date(from), to: new Date(to) }; renderFilterTags(); applyFilters(); document.getElementById('datePopover').style.display = 'none'; } }
         function clearDateFilter() { document.getElementById('dateFrom').value = ''; document.getElementById('dateTo').value = ''; activeFilters.dateRange = null; renderFilterTags(); applyFilters(); }
         function removeMultiFilter(type, value) { if (type === 'dateRange') { clearDateFilter(); } else if (type === 'priceRange') { clearRangeFilter('priceRange', 'minPrice', 'maxPrice'); } else if (type === 'sqftRange') { clearRangeFilter('sqftRange', 'minSqft', 'maxSqft'); } else { activeFilters[type].delete(value); document.querySelectorAll(`input[type="checkbox"][value="${value}"]`).forEach(cb => cb.checked = false); renderFilterTags(); applyFilters(); } }
-        function clearAllFilters() { activeFilters = { text: activeFilters.text, banks: new Set(), categories: new Set(), statuses: new Set(), zones: new Set(), dateRange: null, priceRange: {min: null, max: null}, sqftRange: {min: null, max: null}, sort: "none" }; document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false); clearDateFilter(); clearRangeFilter('priceRange', 'minPrice', 'maxPrice'); clearRangeFilter('sqftRange', 'minSqft', 'maxSqft'); }
+        function clearAllFilters() { clearFiltersUI(); applyFilters(); }
         function renderFilterTags() { const container = document.getElementById("filterTags"); container.innerHTML = ""; let hasTags = false; ['banks', 'categories', 'statuses', 'zones'].forEach(type => { activeFilters[type].forEach(val => { container.innerHTML += createTagHtml(type, val, val); hasTags = true; }); }); if (activeFilters.dateRange) { container.innerHTML += createTagHtml('dateRange', 'range', `Date: ${activeFilters.dateRange.from.toLocaleDateString()} - ${activeFilters.dateRange.to.toLocaleDateString()}`); hasTags = true; } if (activeFilters.priceRange.min !== null || activeFilters.priceRange.max !== null) { let pLabel = `Price: ${activeFilters.priceRange.min || 0} to ${activeFilters.priceRange.max || 'Max'}`; container.innerHTML += createTagHtml('priceRange', 'range', pLabel); hasTags = true; } if (activeFilters.sqftRange.min !== null || activeFilters.sqftRange.max !== null) { let sLabel = `SqFt: ${activeFilters.sqftRange.min || 0} to ${activeFilters.sqftRange.max || 'Max'}`; container.innerHTML += createTagHtml('sqftRange', 'range', sLabel); hasTags = true; } if (hasTags) { container.innerHTML += `<button type="button" onclick="clearAllFilters()" class="ml-2 px-3 py-1 bg-red-50 text-red-600 rounded-full text-xs font-bold hover:bg-red-100 transition border border-red-100">Clear All</button>`; container.classList.remove('hidden'); } else { container.classList.add('hidden'); } }
         function createTagHtml(type, value, displayLabel) { const safeValue = typeof value === 'string' ? value.replace(/'/g, "\\'") : value; return `<div class="flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium border border-gray-200 shadow-sm"><span>${displayLabel}</span><button type="button" onclick="removeMultiFilter('${type}', '${safeValue}')" class="text-gray-400 hover:text-red-500 outline-none"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>`; }
 
-        function saveInlineEMP(e, auctionId, val) {
-            e.stopPropagation();
-            let prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId));
-            if (!prop) return;
+        function applyFilters() {
+            let filteredData = globalAuctionData.filter(row => {
+                const auctionIdStr = String(row["Auction ID"]);
+                
+                if (currentSubView === 'nav-investors' || currentSubView === 'nav-wip') {
+                    const isWip = String(row["Lead Stage"]).toUpperCase() === "WIP" || userWip.has(auctionIdStr);
+                    if (!isWip) return false;
+                } else {
+                    if (currentSubView === 'nav-new' && !row._isNew) return false;
+                    if (currentSubView === 'nav-fav' && !userFavorites.has(auctionIdStr)) return false;
+                    if (currentSubView === 'nav-rej' && !userRejected.has(auctionIdStr)) return false;
+                }
 
-            if (!val || val.trim() === "") {
-                e.target.value = ""; e.target.title = "";
-                prop["Estimated Market Price"] = "";
-                let deltaEl = document.getElementById(`delta-${auctionId}`);
-                if (deltaEl) { deltaEl.innerText = "-"; deltaEl.className = 'text-gray-500 text-xs'; }
-                fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_wip_details", auctionId: auctionId, updates: { "Estimated Market Price": "" } }) }).catch(err => console.error(err));
-                return;
+                const txtMatch = String(row["Area / Town"] + " " + auctionIdStr + " " + (row["Borrower Name"] || "")).toLowerCase().includes(activeFilters.text);
+                const bankMatch = activeFilters.banks.size === 0 || activeFilters.banks.has(row["Bank Name"]);
+                const catMatch = activeFilters.categories.size === 0 || activeFilters.categories.has(getSafeCategory(row));
+                const parsed = parseCustomDate(row["Auction Start Date"]);
+                const statusMatch = activeFilters.statuses.size === 0 || activeFilters.statuses.has(getStatusDetails(row["Application Submission Date"], row["Auction Start Date"]));
+                const zoneMatch = activeFilters.zones.size === 0 || activeFilters.zones.has(getZoneForArea(row["Area / Town"]));
+                
+                let dateMatch = true;
+                if (activeFilters.dateRange && row["Auction Start Date"]) { dateMatch = parsed.dateObj && parsed.dateObj >= activeFilters.dateRange.from && parsed.dateObj <= activeFilters.dateRange.to; }
+                let priceMatch = true;
+                if (activeFilters.priceRange.min !== null || activeFilters.priceRange.max !== null) { let val = parseIndianCurrency(row["Reserve Price"]); if (activeFilters.priceRange.min !== null && val < activeFilters.priceRange.min) priceMatch = false; if (activeFilters.priceRange.max !== null && val > activeFilters.priceRange.max) priceMatch = false; }
+                let sqftMatch = true;
+                if (activeFilters.sqftRange.min !== null || activeFilters.sqftRange.max !== null) { let val = parseIndianCurrency(row["Square Feet"]); if (activeFilters.sqftRange.min !== null && val < activeFilters.sqftRange.min) sqftMatch = false; if (activeFilters.sqftRange.max !== null && val > activeFilters.sqftRange.max) sqftMatch = false; }
+
+                return txtMatch && bankMatch && catMatch && statusMatch && zoneMatch && dateMatch && priceMatch && sqftMatch;
+            });
+
+            if (sortConfig.direction !== 'default' && sortConfig.column) {
+                filteredData.sort((a, b) => {
+                    let valA, valB;
+                    if (['Reserve Price', 'Square Feet'].includes(sortConfig.column)) { valA = parseIndianCurrency(a[sortConfig.column]); valB = parseIndianCurrency(b[sortConfig.column]); } 
+                    else if (sortConfig.column === 'Rental per Month') { valA = parseIndianCurrency(a["Rental per Month"]); valB = parseIndianCurrency(b["Rental per Month"]); }
+                    else if (sortConfig.column === 'Auction Start Date') { valA = parseCustomDate(a[sortConfig.column]).dateObj || new Date(0); valB = parseCustomDate(b[sortConfig.column]).dateObj || new Date(0); } 
+                    else if (sortConfig.column === 'Status') { valA = getStatusDetails(a["Application Submission Date"], a['Auction Start Date']); valB = getStatusDetails(b["Application Submission Date"], b['Auction Start Date']); } 
+                    else if (sortConfig.column === 'Estimated Market Price') {
+                        let empA = parseIndianCurrency(a["Estimated Market Price"]); let sqA = parseIndianCurrency(a["Square Feet"]);
+                        valA = (empA > 0 && empA < 500000 && sqA > 0) ? empA * sqA : empA;
+                        let empB = parseIndianCurrency(b["Estimated Market Price"]); let sqB = parseIndianCurrency(b["Square Feet"]);
+                        valB = (empB > 0 && empB < 500000 && sqB > 0) ? empB * sqB : empB;
+                    }
+                    else if (sortConfig.column === 'Delta') {
+                        let empA = parseIndianCurrency(a["Estimated Market Price"]); let sqA = parseIndianCurrency(a["Square Feet"]);
+                        let totalA = (empA > 0 && empA < 500000 && sqA > 0) ? empA * sqA : empA; let resA = parseIndianCurrency(a["Reserve Price"]);
+                        valA = (totalA > 0 && resA > 0) ? ((totalA - resA) / resA) : -999999;
+                        let empB = parseIndianCurrency(b["Estimated Market Price"]); let sqB = parseIndianCurrency(b["Square Feet"]);
+                        let totalB = (empB > 0 && empB < 500000 && sqB > 0) ? empB * sqB : empB; let resB = parseIndianCurrency(b["Reserve Price"]);
+                        valB = (totalB > 0 && resB > 0) ? ((totalB - resB) / resB) : -999999;
+                    }
+                    else if (sortConfig.column === 'Rental Yield') {
+                        let rentA = parseIndianCurrency(a["Rental per Month"]); let resA = parseIndianCurrency(a["Reserve Price"]);
+                        valA = (rentA > 0 && resA > 0) ? ((rentA * 12) / resA) : -999999;
+                        let rentB = parseIndianCurrency(b["Rental per Month"]); let resB = parseIndianCurrency(b["Reserve Price"]);
+                        valB = (rentB > 0 && resB > 0) ? ((rentB * 12) / resB) : -999999;
+                    }
+                    else { valA = String(a[sortConfig.column] || "").toLowerCase(); valB = String(b[sortConfig.column] || "").toLowerCase(); }
+                    
+                    if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                    if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
             }
-            
-            let rawVal = parseIndianCurrency(val);
-            if(rawVal === 0) return;
-            let sqft = parseIndianCurrency(prop["Square Feet"]);
+            renderTable(filteredData);
+        }
+
+        function saveInlineEMP(e, auctionId, val) {
+            e.stopPropagation(); let prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId)); if (!prop) return;
+            if (!val || val.trim() === "") {
+                e.target.value = ""; e.target.title = ""; prop["Estimated Market Price"] = "";
+                let deltaEl = document.getElementById(`delta-${auctionId}`); if (deltaEl) { deltaEl.innerText = "-"; deltaEl.className = 'text-gray-500 text-xs'; }
+                fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_wip_details", auctionId: auctionId, updates: { "Estimated Market Price": "" } }) }).catch(err => console.error(err)); return;
+            }
+            let rawVal = parseIndianCurrency(val); if(rawVal === 0) return; let sqft = parseIndianCurrency(prop["Square Feet"]);
             let isTotal = val.toLowerCase().includes('cr') || val.toLowerCase().includes('lakh') || val.toLowerCase().includes('lac') || rawVal > 500000;
             let finalTotalToSave = rawVal; let perSqFt = rawVal;
-
-            if (!isTotal) { 
-                if (sqft > 0) { finalTotalToSave = rawVal * sqft; perSqFt = rawVal; } else { finalTotalToSave = rawVal; perSqFt = rawVal; }
-            } else { finalTotalToSave = rawVal; perSqFt = sqft > 0 ? rawVal / sqft : rawVal; }
-
-            let formattedTotal = formatIndianCurrency(finalTotalToSave);
-            e.target.value = formattedTotal; e.target.title = `₹${formatIndianCurrency(perSqFt)} / sq.ft`;
-            prop["Estimated Market Price"] = formattedTotal;
-            
-            let rawReserve = parseIndianCurrency(prop["Reserve Price"]);
-            let delta = 0;
-            if (finalTotalToSave > 0 && rawReserve > 0) { delta = ((finalTotalToSave - rawReserve) / rawReserve) * 100; }
+            if (!isTotal) { if (sqft > 0) { finalTotalToSave = rawVal * sqft; perSqFt = rawVal; } else { finalTotalToSave = rawVal; perSqFt = rawVal; } } else { finalTotalToSave = rawVal; perSqFt = sqft > 0 ? rawVal / sqft : rawVal; }
+            let formattedTotal = formatIndianCurrency(finalTotalToSave); e.target.value = formattedTotal; e.target.title = `₹${formatIndianCurrency(perSqFt)} / sq.ft`; prop["Estimated Market Price"] = formattedTotal;
+            let rawReserve = parseIndianCurrency(prop["Reserve Price"]); let delta = 0; if (finalTotalToSave > 0 && rawReserve > 0) { delta = ((finalTotalToSave - rawReserve) / rawReserve) * 100; }
             let deltaEl = document.getElementById(`delta-${auctionId}`);
-            if (deltaEl) {
-                deltaEl.innerText = finalTotalToSave > 0 ? Math.round(delta) + "%" : "-";
-                deltaEl.className = delta > 0 ? 'text-emerald-600 font-bold text-xs' : (delta < 0 ? 'text-red-600 font-bold text-xs' : 'text-gray-500 text-xs');
-            }
+            if (deltaEl) { deltaEl.innerText = finalTotalToSave > 0 ? Math.round(delta) + "%" : "-"; deltaEl.className = delta > 0 ? 'text-emerald-600 font-bold text-xs' : (delta < 0 ? 'text-red-600 font-bold text-xs' : 'text-gray-500 text-xs'); }
             fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_wip_details", auctionId: auctionId, updates: { "Estimated Market Price": formattedTotal } }) }).catch(err => console.error(err));
         }
 
         function saveInlineRental(e, auctionId, val) {
-            e.stopPropagation();
-            let prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId));
-            if (!prop) return;
-
-            if (!val || val.trim() === "") {
-                e.target.value = ""; prop["Rental per Month"] = "";
-                let yieldEl = document.getElementById(`yield-${auctionId}`);
-                if (yieldEl) { yieldEl.innerText = "-"; yieldEl.className = 'text-gray-500 text-xs'; }
-                fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_wip_details", auctionId: auctionId, updates: { "Rental per Month": "" } }) }).catch(err => console.error(err));
-                return;
-            }
-
-            let rawVal = parseIndianCurrency(val);
-            if(rawVal === 0) return;
-            let formattedTotal = formatIndianCurrency(rawVal);
+            e.stopPropagation(); let prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId)); if (!prop) return;
+            if (!val || val.trim() === "") { e.target.value = ""; prop["Rental per Month"] = ""; let yieldEl = document.getElementById(`yield-${auctionId}`); if (yieldEl) { yieldEl.innerText = "-"; yieldEl.className = 'text-gray-500 text-xs'; } fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_wip_details", auctionId: auctionId, updates: { "Rental per Month": "" } }) }).catch(err => console.error(err)); return; }
+            let rawVal = parseIndianCurrency(val); if(rawVal === 0) return; let formattedTotal = formatIndianCurrency(rawVal);
             e.target.value = formattedTotal; prop["Rental per Month"] = formattedTotal;
-
-            let rawReserve = parseIndianCurrency(prop["Reserve Price"]);
-            let yieldVal = 0;
-            if (rawVal > 0 && rawReserve > 0) { yieldVal = ((rawVal * 12) / rawReserve) * 100; }
+            let rawReserve = parseIndianCurrency(prop["Reserve Price"]); let yieldVal = 0; if (rawVal > 0 && rawReserve > 0) { yieldVal = ((rawVal * 12) / rawReserve) * 100; }
             let yieldEl = document.getElementById(`yield-${auctionId}`);
-            if (yieldEl) {
-                yieldEl.innerText = rawVal > 0 ? yieldVal.toFixed(1) + "%" : "-";
-                yieldEl.className = rawVal > 0 ? 'text-blue-600 font-bold text-xs' : 'text-gray-500 text-xs';
-            }
+            if (yieldEl) { yieldEl.innerText = rawVal > 0 ? yieldVal.toFixed(1) + "%" : "-"; yieldEl.className = rawVal > 0 ? 'text-blue-600 font-bold text-xs' : 'text-gray-500 text-xs'; }
             fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_wip_details", auctionId: auctionId, updates: { "Rental per Month": formattedTotal } }) }).catch(err => console.error(err));
         }
 
         function saveInlineSqFt(e, auctionId, val) {
-            e.stopPropagation();
-            let prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId));
-            if (!prop) return;
-
-            let rawVal = parseIndianCurrency(val);
-            let formattedSqFt = rawVal > 0 ? rawVal.toString() : "";
-            e.target.value = rawVal > 0 ? formatIndianCurrency(rawVal) : "";
-            prop["Square Feet"] = formattedSqFt;
-
-            let dbEMP = parseIndianCurrency(prop["Estimated Market Price"]);
-            let rawReserve = parseIndianCurrency(prop["Reserve Price"]);
-            let displayTotalEMP = dbEMP; let perSqFtEMP = dbEMP;
-
-            if (dbEMP > 0) {
-                if (dbEMP < 500000 && rawVal > 0) { displayTotalEMP = dbEMP * rawVal; perSqFtEMP = dbEMP; } 
-                else if (rawVal > 0) { perSqFtEMP = dbEMP / rawVal; }
-            }
-
-            let empInput = document.getElementById(`emp-input-${auctionId}`);
-            if(empInput) {
-                empInput.value = displayTotalEMP > 0 ? formatIndianCurrency(displayTotalEMP) : "";
-                empInput.title = perSqFtEMP > 0 ? `₹${formatIndianCurrency(perSqFtEMP)} / sq.ft` : "Enter Price / sq.ft or Total";
-            }
-
-            let delta = 0;
-            if (displayTotalEMP > 0 && rawReserve > 0) { delta = ((displayTotalEMP - rawReserve) / rawReserve) * 100; }
+            e.stopPropagation(); let prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId)); if (!prop) return;
+            let rawVal = parseIndianCurrency(val); let formattedSqFt = rawVal > 0 ? rawVal.toString() : ""; e.target.value = rawVal > 0 ? formatIndianCurrency(rawVal) : ""; prop["Square Feet"] = formattedSqFt;
+            let dbEMP = parseIndianCurrency(prop["Estimated Market Price"]); let rawReserve = parseIndianCurrency(prop["Reserve Price"]); let displayTotalEMP = dbEMP; let perSqFtEMP = dbEMP;
+            if (dbEMP > 0) { if (dbEMP < 500000 && rawVal > 0) { displayTotalEMP = dbEMP * rawVal; perSqFtEMP = dbEMP; } else if (rawVal > 0) { perSqFtEMP = dbEMP / rawVal; } }
+            let empInput = document.getElementById(`emp-input-${auctionId}`); if(empInput) { empInput.value = displayTotalEMP > 0 ? formatIndianCurrency(displayTotalEMP) : ""; empInput.title = perSqFtEMP > 0 ? `₹${formatIndianCurrency(perSqFtEMP)} / sq.ft` : "Enter Price / sq.ft or Total"; }
+            let delta = 0; if (displayTotalEMP > 0 && rawReserve > 0) { delta = ((displayTotalEMP - rawReserve) / rawReserve) * 100; }
             let deltaEl = document.getElementById(`delta-${auctionId}`);
-            if (deltaEl) {
-                deltaEl.innerText = displayTotalEMP > 0 ? Math.round(delta) + "%" : "-";
-                deltaEl.className = displayTotalEMP > 0 ? (delta > 0 ? 'text-emerald-600 font-bold text-xs' : (delta < 0 ? 'text-red-600 font-bold text-xs' : 'text-gray-500 text-xs')) : 'text-gray-500 text-xs';
-            }
+            if (deltaEl) { deltaEl.innerText = displayTotalEMP > 0 ? Math.round(delta) + "%" : "-"; deltaEl.className = displayTotalEMP > 0 ? (delta > 0 ? 'text-emerald-600 font-bold text-xs' : (delta < 0 ? 'text-red-600 font-bold text-xs' : 'text-gray-500 text-xs')) : 'text-gray-500 text-xs'; }
             fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_wip_details", auctionId: auctionId, updates: { "Square Feet": formattedSqFt } }) }).catch(err => console.error(err));
         }
 
-        // 🚨 STANDARD AUCTIONS TABLE
         function renderTable(dataToRender) {
             if (currentSubView === 'nav-investors') { renderInvestorsTable(dataToRender); return; }
 
@@ -681,8 +666,8 @@
                     <td class="px-3 py-3 whitespace-nowrap text-center"><span id="yield-${auctionId}" class="${yieldClass} text-xs">${yieldText}</span></td>
                     <td class="px-3 py-3 whitespace-nowrap text-gray-800 text-xs">${parsed.dateStr}</td>
                     <td class="px-3 py-3 whitespace-nowrap text-center space-x-1.5 sticky right-0 bg-white group-hover:bg-[#f0f9ff] z-10 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] border-l border-gray-100">
-                        <button type="button" onclick="toggleAction(event, '${auctionId}', 'wip')" title="Work In Progress" class="outline-none transition-transform hover:scale-110"><svg class="w-5 h-5 inline-block ${isWip ? 'text-amber-500 fill-amber-500' : 'text-gray-300 hover:text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012-2m-6 9l2 2 4-4"></path></svg></button>
                         <button type="button" onclick="toggleAction(event, '${auctionId}', 'fav')" title="Favourite" class="outline-none transition-transform hover:scale-110"><svg class="w-5 h-5 inline-block ${isFav ? 'text-yellow-400 text-yellow-400' : 'text-gray-300 hover:text-gray-400'}" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg></button>
+                        <button type="button" onclick="toggleAction(event, '${auctionId}', 'wip')" title="Work In Progress" class="outline-none transition-transform hover:scale-110"><svg class="w-5 h-5 inline-block ${isWip ? 'text-amber-500 fill-amber-500' : 'text-gray-300 hover:text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012-2m-6 9l2 2 4-4"></path></svg></button>
                         <button type="button" onclick="toggleAction(event, '${auctionId}', 'rej')" title="Rejected" class="outline-none transition-transform hover:scale-110"><svg class="w-5 h-5 inline-block ${isRej ? 'text-red-500 text-red-500' : 'text-gray-300 hover:text-gray-400'}" fill="${isRej ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-12.728 12.728m0-12.728l12.728 12.728M12 2a10 10 0 110 20 10 10 0 010-20z"></path></svg></button>
                     </td>
                 `;
@@ -690,11 +675,16 @@
             });
         }
 
-        // 🚨 NEW: DEAL ROOM INVESTORS TABLE
+        // 🚨 UPGRADED: DEAL ROOM INVESTORS TABLE WITH ACCORDION
+        function toggleQuickView(auctionId) {
+            const expandTr = document.getElementById('syn-expand-' + auctionId);
+            if (expandTr) { expandTr.classList.toggle('hidden'); }
+        }
+
         function renderInvestorsTable(dataToRender) {
             const tableBody = document.getElementById("investors-table-body"); tableBody.innerHTML = ""; 
             document.getElementById("rowCountDisplay").innerText = `Showing ${dataToRender.length} Syndicate Deals`;
-            if(dataToRender.length === 0) { tableBody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No active deals found. Tag properties as WIP to create Deal Rooms.</td></tr>`; return; }
+            if(dataToRender.length === 0) { tableBody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">No active deals found. Tag properties as WIP to create Deal Rooms.</td></tr>`; return; }
             
             dataToRender.forEach(row => {
                 const statusStr = getStatusDetails(row["Application Submission Date"], row["Auction Start Date"]);
@@ -713,120 +703,101 @@
                 if (dbRental > 0 && rawP > 0) { yieldVal = ((dbRental * 12) / rawP) * 100; }
                 let yieldText = dbRental > 0 ? yieldVal.toFixed(1) + "%" : "-";
 
-                // Parse Syndicate Data securely
+                let rawSqft = parseIndianCurrency(row["Square Feet"]); 
+                let dbEMP = parseIndianCurrency(row["Estimated Market Price"]);
+                let displayTotalEMP = dbEMP;
+                if (dbEMP > 0) { if (dbEMP < 500000 && rawSqft > 0) { displayTotalEMP = dbEMP * rawSqft; } }
+
+                let delta = 0;
+                if (displayTotalEMP > 0 && rawP > 0) { delta = ((displayTotalEMP - rawP) / rawP) * 100; }
+                let deltaText = displayTotalEMP > 0 ? Math.round(delta) + "%" : "-";
+                let deltaClass = displayTotalEMP > 0 ? (delta > 0 ? 'text-emerald-600 font-bold' : (delta < 0 ? 'text-red-600 font-bold' : 'text-gray-500')) : 'text-gray-500';
+
                 let synData = [];
                 try { synData = JSON.parse(row["Syndicate Data"] || "[]"); } catch(e) {}
-                let totalRaised = 0;
-                synData.forEach(inv => { if(inv.status !== "Backed Out") { totalRaised += parseIndianCurrency(inv.amount); } });
-                let fRaised = totalRaised > 0 ? "₹" + formatIndianCurrency(totalRaised) : "₹0";
                 
-                const tr = document.createElement("tr"); tr.id = 'syn-row-' + auctionId; tr.className = "hover:bg-indigo-50/40 transition-colors cursor-pointer group"; tr.onclick = () => openSyndicateDetail(auctionId);
-                let typeHtml = row["Property Type"] || "N/A";
+                let soloC = 0; let partC = 0;
+                synData.forEach(deal => { if (deal.type === 'solo') soloC++; else if (deal.type === 'partnership') partC++; else soloC++; });
+                let summaryHtml = `<span class="text-gray-700 font-bold text-[11px]">${soloC} Solo | ${partC} Pools</span>`;
+                
+                const tr = document.createElement("tr"); tr.id = 'syn-row-' + auctionId; tr.className = "hover:bg-gray-50 transition-colors cursor-pointer group border-b border-gray-100"; tr.onclick = () => toggleQuickView(auctionId);
+                let borrowerHtml = row["Borrower Name"] || "N/A";
 
                 tr.innerHTML = `
                     <td class="px-4 py-3 whitespace-nowrap">${sHtml}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-gray-800 text-xs">${typeHtml}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-gray-800 text-xs font-medium">${borrowerHtml}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-gray-600 text-xs">${row["Area / Town"] || "Unknown"}</td>
                     <td class="px-4 py-3 whitespace-nowrap font-bold text-gray-800 text-xs">${fPrice}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center"><span class="${deltaClass} text-xs">${deltaText}</span></td>
                     <td class="px-4 py-3 whitespace-nowrap font-bold text-gray-600 text-xs">${yieldText}</td>
-                    <td class="px-4 py-3 whitespace-nowrap font-black text-indigo-700 text-sm bg-indigo-50/30 group-hover:bg-transparent transition-colors">${fRaised}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-center sticky right-0 bg-white group-hover:bg-[#eef2ff] z-10 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] border-l border-gray-100">
-                        <button type="button" class="px-3 py-1.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white transition-colors">Open Room ➔</button>
+                    <td class="px-4 py-3 whitespace-nowrap text-center bg-gray-50/50">${summaryHtml}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center sticky right-0 bg-white group-hover:bg-gray-50 z-10 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] border-l border-gray-100">
+                        <button type="button" onclick="event.stopPropagation(); openSyndicateDetail('${auctionId}')" class="px-3 py-1.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white transition-colors shadow-sm">Open Room ➔</button>
                     </td>
                 `;
                 tableBody.appendChild(tr);
-            });
-        }
 
-        // 🚨 UPGRADED FILTER LOGIC TO ROUTE TO DEAL ROOM
-        function applyFilters() {
-            let filteredData = globalAuctionData.filter(row => {
-                const auctionIdStr = String(row["Auction ID"]);
-                
-                // For nav-investors, force WIP-only filter
-                if (currentSubView === 'nav-investors') {
-                    const isWip = String(row["Lead Stage"]).toUpperCase() === "WIP" || userWip.has(auctionIdStr);
-                    if (!isWip) return false;
+                let viewHtml = '';
+                if (synData.length === 0) {
+                    viewHtml = '<div class="text-gray-400 text-xs italic p-4 text-center">No active deals yet. Click "Open Room" to create one.</div>';
                 } else {
-                    if (currentSubView === 'nav-new' && !row._isNew) return false;
-                    if (currentSubView === 'nav-fav' && !userFavorites.has(auctionIdStr)) return false;
-                    if (currentSubView === 'nav-wip' && !userWip.has(auctionIdStr)) return false;
-                    if (currentSubView === 'nav-rej' && !userRejected.has(auctionIdStr)) return false;
+                    viewHtml = '<div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">';
+                    synData.forEach(deal => {
+                        if (deal.type === 'solo') {
+                            viewHtml += `<div class="flex items-center justify-between bg-white border border-gray-200 p-2 rounded shadow-sm"><div class="flex items-center gap-2"><span class="text-emerald-600 text-sm">🦅</span><span class="text-xs font-bold text-gray-800">${deal.name || 'Unnamed Solo'}</span></div><div class="text-xs font-bold text-emerald-700">${deal.amount}</div></div>`;
+                        } else if (deal.type === 'partnership') {
+                            let pTotal = 0; let pCount = 0;
+                            if (deal.investors) { deal.investors.forEach(inv => { let val = parseIndianCurrency(inv.amount); if(val>0) pTotal+=val; pCount++; }); }
+                            viewHtml += `<div class="flex items-center justify-between bg-white border border-gray-200 p-2 rounded shadow-sm"><div class="flex items-center gap-2"><span class="text-indigo-600 text-sm">🤝</span><span class="text-xs font-bold text-gray-800">${deal.name || 'Unnamed Pool'}</span></div><div class="flex gap-3 text-xs"><span class="text-gray-500">${pCount} members</span><span class="font-bold text-indigo-700">₹${formatIndianCurrency(pTotal)}</span></div></div>`;
+                        }
+                    });
+                    viewHtml += '</div>';
                 }
 
-                const txtMatch = String(row["Area / Town"] + " " + auctionIdStr + " " + (row["Borrower Name"] || "")).toLowerCase().includes(activeFilters.text);
-                const bankMatch = activeFilters.banks.size === 0 || activeFilters.banks.has(row["Bank Name"]);
-                const catMatch = activeFilters.categories.size === 0 || activeFilters.categories.has(getSafeCategory(row));
-                const parsed = parseCustomDate(row["Auction Start Date"]);
-                const statusMatch = activeFilters.statuses.size === 0 || activeFilters.statuses.has(getStatusDetails(row["Application Submission Date"], row["Auction Start Date"]));
-                const zoneMatch = activeFilters.zones.size === 0 || activeFilters.zones.has(getZoneForArea(row["Area / Town"]));
-                
-                let dateMatch = true;
-                if (activeFilters.dateRange && row["Auction Start Date"]) { dateMatch = parsed.dateObj && parsed.dateObj >= activeFilters.dateRange.from && parsed.dateObj <= activeFilters.dateRange.to; }
-                let priceMatch = true;
-                if (activeFilters.priceRange.min !== null || activeFilters.priceRange.max !== null) { let val = parseIndianCurrency(row["Reserve Price"]); if (activeFilters.priceRange.min !== null && val < activeFilters.priceRange.min) priceMatch = false; if (activeFilters.priceRange.max !== null && val > activeFilters.priceRange.max) priceMatch = false; }
-                let sqftMatch = true;
-                if (activeFilters.sqftRange.min !== null || activeFilters.sqftRange.max !== null) { let val = parseIndianCurrency(row["Square Feet"]); if (activeFilters.sqftRange.min !== null && val < activeFilters.sqftRange.min) sqftMatch = false; if (activeFilters.sqftRange.max !== null && val > activeFilters.sqftRange.max) sqftMatch = false; }
-
-                return txtMatch && bankMatch && catMatch && statusMatch && zoneMatch && dateMatch && priceMatch && sqftMatch;
+                const expandTr = document.createElement("tr");
+                expandTr.id = 'syn-expand-' + auctionId;
+                expandTr.className = "hidden bg-gray-50/80 shadow-inner";
+                expandTr.innerHTML = `<td colspan="8" class="p-0 border-t border-gray-200">${viewHtml}</td>`;
+                tableBody.appendChild(expandTr);
             });
-
-            if (sortConfig.direction !== 'default' && sortConfig.column) {
-                filteredData.sort((a, b) => {
-                    let valA, valB;
-                    if (['Reserve Price', 'Square Feet'].includes(sortConfig.column)) { valA = parseIndianCurrency(a[sortConfig.column]); valB = parseIndianCurrency(b[sortConfig.column]); } 
-                    else if (sortConfig.column === 'Rental per Month') { valA = parseIndianCurrency(a["Rental per Month"]); valB = parseIndianCurrency(b["Rental per Month"]); }
-                    else if (sortConfig.column === 'Auction Start Date') { valA = parseCustomDate(a[sortConfig.column]).dateObj || new Date(0); valB = parseCustomDate(b[sortConfig.column]).dateObj || new Date(0); } 
-                    else if (sortConfig.column === 'Status') { valA = getStatusDetails(a["Application Submission Date"], a['Auction Start Date']); valB = getStatusDetails(b["Application Submission Date"], b['Auction Start Date']); } 
-                    else if (sortConfig.column === 'Estimated Market Price') {
-                        let empA = parseIndianCurrency(a["Estimated Market Price"]); let sqA = parseIndianCurrency(a["Square Feet"]);
-                        valA = (empA > 0 && empA < 500000 && sqA > 0) ? empA * sqA : empA;
-                        let empB = parseIndianCurrency(b["Estimated Market Price"]); let sqB = parseIndianCurrency(b["Square Feet"]);
-                        valB = (empB > 0 && empB < 500000 && sqB > 0) ? empB * sqB : empB;
-                    }
-                    else if (sortConfig.column === 'Delta') {
-                        let empA = parseIndianCurrency(a["Estimated Market Price"]); let sqA = parseIndianCurrency(a["Square Feet"]);
-                        let totalA = (empA > 0 && empA < 500000 && sqA > 0) ? empA * sqA : empA; let resA = parseIndianCurrency(a["Reserve Price"]);
-                        valA = (totalA > 0 && resA > 0) ? ((totalA - resA) / resA) : -999999;
-                        let empB = parseIndianCurrency(b["Estimated Market Price"]); let sqB = parseIndianCurrency(b["Square Feet"]);
-                        let totalB = (empB > 0 && empB < 500000 && sqB > 0) ? empB * sqB : empB; let resB = parseIndianCurrency(b["Reserve Price"]);
-                        valB = (totalB > 0 && resB > 0) ? ((totalB - resB) / resB) : -999999;
-                    }
-                    else if (sortConfig.column === 'Rental Yield') {
-                        let rentA = parseIndianCurrency(a["Rental per Month"]); let resA = parseIndianCurrency(a["Reserve Price"]);
-                        valA = (rentA > 0 && resA > 0) ? ((rentA * 12) / resA) : -999999;
-                        let rentB = parseIndianCurrency(b["Rental per Month"]); let resB = parseIndianCurrency(b["Reserve Price"]);
-                        valB = (rentB > 0 && resB > 0) ? ((rentB * 12) / resB) : -999999;
-                    }
-                    else { valA = String(a[sortConfig.column] || "").toLowerCase(); valB = String(b[sortConfig.column] || "").toLowerCase(); }
-                    
-                    if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-                    if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-                    return 0;
-                });
-            }
-            renderTable(filteredData);
         }
 
-        // Detail Action Toggles
+        // 🚨 UPGRADED WIP BUTTON: Instantly removes the Lead Stage so Filter completely drops it
         function toggleAction(e, auctionId, actionType) {
             e.stopPropagation(); let idStr = String(auctionId);
-            const btn = e.currentTarget; const svg = btn ? btn.querySelector('svg') : null;
-            let isAdded = false;
-            if (actionType === 'fav') { if (userFavorites.has(idStr)) { userFavorites.delete(idStr); if(svg) { svg.classList.remove('text-yellow-400'); svg.setAttribute('fill', 'none'); svg.classList.add('text-gray-300'); } } else { userFavorites.add(idStr); isAdded = true; if(svg) { svg.classList.add('text-yellow-400'); svg.setAttribute('fill', 'currentColor'); svg.classList.remove('text-gray-300'); } } } 
-            else if (actionType === 'wip') { if (userWip.has(idStr)) { userWip.delete(idStr); if(svg) { svg.classList.remove('text-amber-500', 'fill-amber-500'); svg.classList.add('text-gray-300'); } } else { userWip.add(idStr); isAdded = true; if(svg) { svg.classList.add('text-amber-500', 'fill-amber-500'); svg.classList.remove('text-gray-300'); } } } 
-            else if (actionType === 'rej') { if (userRejected.has(idStr)) { userRejected.delete(idStr); if(svg) { svg.classList.remove('text-red-500'); svg.setAttribute('fill', 'none'); svg.classList.add('text-gray-300'); } } else { userRejected.add(idStr); isAdded = true; if(svg) { svg.classList.add('text-red-500'); svg.setAttribute('fill', 'currentColor'); svg.classList.remove('text-gray-300'); } } }
+            let prop = globalAuctionData.find(r => String(r["Auction ID"]) === idStr);
+            const btn = e.currentTarget; const svg = btn ? btn.querySelector('svg') : null; let isAdded = false;
+            
+            if (actionType === 'fav') { 
+                if (userFavorites.has(idStr)) { userFavorites.delete(idStr); if(svg) { svg.classList.remove('text-yellow-400'); svg.setAttribute('fill', 'none'); svg.classList.add('text-gray-300'); } } 
+                else { userFavorites.add(idStr); isAdded = true; if(svg) { svg.classList.add('text-yellow-400'); svg.setAttribute('fill', 'currentColor'); svg.classList.remove('text-gray-300'); } } 
+            } 
+            else if (actionType === 'wip') { 
+                if (userWip.has(idStr)) { 
+                    userWip.delete(idStr); 
+                    if(prop) prop["Lead Stage"] = ""; // 🚨 Force memory clear so it drops off WIP tab
+                    if(svg) { svg.classList.remove('text-amber-500', 'fill-amber-500'); svg.classList.add('text-gray-300'); } 
+                } 
+                else { 
+                    userWip.add(idStr); isAdded = true; 
+                    if(prop) prop["Lead Stage"] = "WIP";
+                    if(svg) { svg.classList.add('text-amber-500', 'fill-amber-500'); svg.classList.remove('text-gray-300'); } 
+                } 
+            } 
+            else if (actionType === 'rej') { 
+                if (userRejected.has(idStr)) { userRejected.delete(idStr); if(svg) { svg.classList.remove('text-red-500'); svg.setAttribute('fill', 'none'); svg.classList.add('text-gray-300'); } } 
+                else { userRejected.add(idStr); isAdded = true; if(svg) { svg.classList.add('text-red-500'); svg.setAttribute('fill', 'currentColor'); svg.classList.remove('text-gray-300'); } } 
+            }
             setTimeout(() => { savePersistentStates(); updateKPIs(); if (currentSubView === 'nav-dashboard') renderOverviewCharts(); else if (currentSubView !== 'nav-visit' && currentSubView !== 'nav-draft') applyFilters(); }, 0);
-            fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auctionId: idStr, actionType: actionType, isAdded: isAdded }) }).catch(err => console.error(err));
+            fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_wip_details", auctionId: idStr, actionType: actionType, isAdded: isAdded }) }).catch(err => console.error(err));
         }
 
-        // 🚨 PROPERTY DETAIL VIEW
         async function openPropertyDetail(auctionId) {
             isEditMode = false;
             const prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId));
             if (!prop) return;
-            switchView('detail-view', ''); document.getElementById('page-title').innerText = `Auction #${auctionId} Details`;
             
+            switchView('detail-view', ''); document.getElementById('page-title').innerText = `Auction #${auctionId} Details`;
             const attrContainer = document.getElementById('detail-attributes'); attrContainer.innerHTML = ""; attrContainer.className = "grid grid-cols-2 gap-4 text-sm";
             document.getElementById('detail-attributes-title').innerText = "Spreadsheet Attributes";
 
@@ -838,7 +809,6 @@
             
             const url = prop["Source URL"] || "#";
             attrContainer.innerHTML += `<div class="border-b pb-2 col-span-2 min-w-0"><span class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Source Listing</span><a href="${url}" target="_blank" class="text-blue-600 hover:underline font-medium inline-flex items-center gap-1 break-all">🔗 ${url !== "#" ? url : "Open Listing Source"}</a></div>`;
-            
             document.getElementById('description-wrapper').innerHTML = `<h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2 mb-3">Property Description</h4><p id="detail-description" class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words">${prop["Description"] || "No description provided."}</p>`;
             document.getElementById('detail-upload-section').classList.add('hidden'); 
 
@@ -856,11 +826,26 @@
             const galleryCont = document.getElementById('property-gallery');
             const photosStr = prop["Photo URLs"];
             if (photosStr && photosStr.trim() !== "") {
-                const urls = photosStr.split(',');
-                let phtml = `<h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2 mb-3">Site Visit Photos</h4><div class="grid grid-cols-3 gap-3">`;
-                urls.forEach(u => { if(u.trim()) phtml += `<a href="${u.trim()}" target="_blank"><img src="${u.trim()}" class="w-full h-32 object-cover rounded shadow-sm hover:opacity-80 transition-opacity"></a>`; });
-                phtml += `</div>`;
-                galleryCont.innerHTML = phtml; galleryCont.classList.remove('hidden');
+                const urls = photosStr.split(',').filter(u => u.trim() !== "");
+                if (urls.length > 0) {
+                    let phtml = `
+                        <div class="flex items-center justify-between border-b pb-2 mb-4">
+                            <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider">Site Visit Photos</h4>
+                            <button type="button" onclick="togglePhotoEdit()" id="photo-edit-btn" class="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-bold rounded shadow-sm transition-colors">✏️ Edit Photos</button>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                    `;
+                    urls.forEach(u => { 
+                        let safeU = u.trim();
+                        phtml += `
+                        <div class="relative group">
+                            <a href="${safeU}" target="_blank"><img src="${safeU}" class="w-full h-32 object-cover rounded shadow-sm hover:opacity-80 transition-opacity"></a>
+                            <button type="button" onclick="deletePhoto('${auctionId}', '${safeU}')" class="delete-photo-btn hidden absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-md hover:bg-red-600 transition-colors z-10 text-xs">✕</button>
+                        </div>`; 
+                    });
+                    phtml += `</div>`;
+                    galleryCont.innerHTML = phtml; galleryCont.classList.remove('hidden');
+                } else { galleryCont.classList.add('hidden'); galleryCont.innerHTML = ""; }
             } else { galleryCont.classList.add('hidden'); galleryCont.innerHTML = ""; }
 
             let lat = 12.9716, lng = 77.5946; 
@@ -874,16 +859,41 @@
             } else {
                 if(subtitleEl) subtitleEl.innerText = "💡 Approximate Area/Town shown. Add exact location in Edit Mode.";
                 const areaTown = prop["Area / Town"] || "Bengaluru";
-                try {
-                    let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(areaTown + ", Bengaluru, Karnataka, India")}`);
-                    let geo = await res.json();
-                    if (geo && geo.length > 0) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
-                } catch (e) {}
+                try { let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(areaTown + ", Bengaluru, Karnataka, India")}`); let geo = await res.json(); if (geo && geo.length > 0) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); } } catch (e) {}
                 loadLeafletMap(lat, lng);
             }
         }
 
-        // 🚨 PROPERTY EDIT MODE
+        // 🚨 UPGRADED: Photo Editor Engine
+        function togglePhotoEdit() {
+            const btns = document.querySelectorAll('.delete-photo-btn');
+            const editBtn = document.getElementById('photo-edit-btn');
+            if (!btns || btns.length === 0) return;
+            const isEditing = !btns[0].classList.contains('hidden');
+            
+            if (isEditing) {
+                btns.forEach(b => b.classList.add('hidden'));
+                if(editBtn) { editBtn.innerText = "✏️ Edit Photos"; editBtn.className = "px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-bold rounded shadow-sm transition-colors"; }
+            } else {
+                btns.forEach(b => b.classList.remove('hidden'));
+                if(editBtn) { editBtn.innerText = "Done Editing"; editBtn.className = "px-2.5 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-[10px] font-bold rounded shadow-sm transition-colors"; }
+            }
+        }
+
+        function deletePhoto(auctionId, urlToRemove) {
+            const prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId));
+            if (!prop) return;
+            
+            let urls = prop["Photo URLs"].split(',').map(u => u.trim()).filter(u => u !== "");
+            urls = urls.filter(u => u !== urlToRemove);
+            prop["Photo URLs"] = urls.join(',');
+            
+            fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_wip_details", auctionId: auctionId, updates: { "Photo URLs": prop["Photo URLs"] } }) }).catch(err => console.error(err));
+            
+            openPropertyDetail(auctionId);
+            setTimeout(() => { togglePhotoEdit(); }, 50); 
+        }
+
         function toggleEditMode(auctionId) {
             const prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId));
             if (!prop) return;
@@ -902,8 +912,7 @@
             let fieldsHtml = '';
             fields.forEach(f => {
                 let safeKey = f.key.replace(/[^a-zA-Z0-9]/g, ''); let val = f.val !== undefined ? f.val : (prop[f.key] || '');
-                let extraClasses = f.span ? ' border-blue-300 bg-blue-50/40 text-blue-900 font-medium' : ' border-gray-300 bg-gray-50';
-                let colSpan = f.span ? 'col-span-2' : '';
+                let extraClasses = f.span ? ' border-blue-300 bg-blue-50/40 text-blue-900 font-medium' : ' border-gray-300 bg-gray-50'; let colSpan = f.span ? 'col-span-2' : '';
                 fieldsHtml += `<div class="${colSpan} min-w-0"><label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 truncate">${f.label}</label><input type="text" id="edit-field-${safeKey}" value="${val}" class="w-full px-2.5 py-1.5 border focus:ring-1 focus:ring-blue-500 rounded text-xs text-gray-800 transition-colors ${extraClasses}"></div>`;
             });
 
@@ -929,6 +938,13 @@
                 if (el) { let val = el.value.trim(); updates[f] = val; prop[f] = val; }
             });
 
+            // 🚨 UPGRADED: Force Map Coordinates instantly into memory so UI refreshes without reload
+            let customCoords = extractCoordinates(prop["Exact Location"]);
+            if (customCoords) {
+                prop["WIP Latitude"] = customCoords[0];
+                prop["WIP Longitude"] = customCoords[1];
+            }
+
             const fileInput = document.getElementById('detail-photos');
             let photosData = [];
             if (fileInput && fileInput.files.length > 0) {
@@ -938,8 +954,7 @@
                 prop["Photo URLs"] = existingPhotos && existingPhotos.trim() ? existingPhotos + "," + localUrls.join(",") : localUrls.join(",");
             }
 
-            userWip.add(String(auctionId)); prop["Lead Stage"] = "WIP";
-            savePersistentStates(); updateKPIs();
+            userWip.add(String(auctionId)); prop["Lead Stage"] = "WIP"; savePersistentStates(); updateKPIs();
             let addedName = prop["Property Name"] && prop["Property Name"] !== "Not Found" ? prop["Property Name"] : (prop["Area / Town"] + " Property");
             localStorage.setItem('newly_added_wip_name', addedName);
 
@@ -947,102 +962,243 @@
             openPropertyDetail(auctionId); applyFilters(); 
         }
 
-        // 🚨 DEAL ROOM SYNDICATE ENGINE
-        function openSyndicateDetail(auctionId) {
-            const prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId));
-            if (!prop) return;
+        function loadLeafletMap(lat, lng) {
+            if (currentMapInstance) { currentMapInstance.off(); currentMapInstance.remove(); }
+            document.getElementById('propertyMap').innerHTML = ''; 
             
-            switchView('syndicate-detail-view', 'nav-investors'); 
-            document.getElementById('page-title').innerText = `Deal Room Overview`;
-            document.getElementById('syndicate-detail-title').innerText = `Deal Room: #${auctionId}`;
-            currentSyndicateId = auctionId;
-            currentSyndicateReserve = parseIndianCurrency(prop["Reserve Price"]);
-
-            let rosterHtml = '';
-            let synData = [];
-            try { synData = JSON.parse(prop["Syndicate Data"] || "[]"); } catch(e) {}
-            
-            if (synData.length === 0) {
-                rosterHtml = `<div class="text-center p-6 text-gray-400 text-xs italic" id="empty-roster-msg">No investors pitched yet. Click Add Investor to start tracking.</div>`;
-            } else {
-                synData.forEach(inv => { rosterHtml += createInvestorRowHtml(inv.name, inv.status, inv.amount); });
-            }
-            
-            document.getElementById('syndicate-roster').innerHTML = rosterHtml;
-            updateSyndicateProgress();
+            setTimeout(() => {
+                currentMapInstance = L.map('propertyMap').setView([lat, lng], 14);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(currentMapInstance);
+                L.marker([lat, lng]).addTo(currentMapInstance);
+                for (let i = 1; i <= 5; i++) { setTimeout(() => { if(currentMapInstance) currentMapInstance.invalidateSize(); }, i * 200); }
+            }, 50);
         }
 
-        function createInvestorRowHtml(name = '', status = 'Chatting', amount = '') {
-            let colors = { 'Chatting': 'text-blue-600', 'Verbal Commitment': 'text-amber-600', 'Funds Transferred': 'text-emerald-600', 'Backed Out': 'text-red-500 line-through opacity-60' };
-            let selColor = colors[status] || 'text-gray-700';
+        function handleDetailActionToggle(e, auctionId, actionType) { toggleAction(e, auctionId, actionType); openPropertyDetail(auctionId); }
 
-            return `
-                <div class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg investor-row transition-all duration-300">
-                    <input type="text" placeholder="Investor Name" value="${name}" class="flex-1 px-3 py-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 syn-name font-bold text-gray-800">
-                    <select onchange="updateSyndicateProgress(); this.className='w-40 px-3 py-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-bold syn-status ' + (this.value==='Backed Out'?'text-red-500 line-through opacity-60':(this.value==='Funds Transferred'?'text-emerald-600':(this.value==='Verbal Commitment'?'text-amber-600':'text-blue-600')))" class="w-40 px-3 py-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-bold syn-status ${selColor}">
-                        <option value="Chatting" ${status === 'Chatting' ? 'selected' : ''}>💬 Chatting</option>
-                        <option value="Verbal Commitment" ${status === 'Verbal Commitment' ? 'selected' : ''}>🤝 Verbal Commitment</option>
-                        <option value="Funds Transferred" ${status === 'Funds Transferred' ? 'selected' : ''}>💰 Funds Transferred</option>
-                        <option value="Backed Out" ${status === 'Backed Out' ? 'selected' : ''}>🚫 Backed Out</option>
-                    </select>
-                    <input type="text" placeholder="Amount (e.g. 50 Lakhs)" value="${amount}" oninput="formatSynAmount(this); updateSyndicateProgress()" class="w-40 px-3 py-2 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 font-bold text-indigo-700 syn-amount">
-                    <button type="button" onclick="this.parentElement.remove(); updateSyndicateProgress()" class="text-red-400 hover:text-red-600 font-bold px-2 py-1 text-lg leading-none transition-colors">✕</button>
+        // 🚨 DEAL ROOM SYNDICATE ENGINE WITH PROPERTY HEADER
+        function openSyndicateDetail(auctionId) {
+            const prop = globalAuctionData.find(r => String(r["Auction ID"]) === String(auctionId)); if (!prop) return;
+            switchView('syndicate-detail-view', 'nav-investors'); 
+            document.getElementById('syndicate-detail-title').innerText = `Deal Room: #${auctionId}`;
+            currentSyndicateId = auctionId; currentSyndicateReserve = parseIndianCurrency(prop["Reserve Price"]);
+
+            // 🚨 Permanent Top Info Strip
+            let rawReserve = parseIndianCurrency(prop["Reserve Price"]);
+            let formattedReserve = rawReserve > 0 ? "₹" + formatIndianCurrency(rawReserve) : "N/A";
+            
+            document.getElementById('syndicate-property-info').innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-gray-400 uppercase tracking-wider text-[10px]">Borrower</span>
+                    <span class="font-bold text-gray-800 text-xs">${prop["Borrower Name"] || "N/A"}</span>
+                </div>
+                <div class="flex items-center gap-2 border-l border-gray-200 pl-6">
+                    <span class="font-bold text-gray-400 uppercase tracking-wider text-[10px]">Area</span>
+                    <span class="font-bold text-gray-800 text-xs">${prop["Area / Town"] || "N/A"}</span>
+                </div>
+                <div class="flex items-center gap-2 border-l border-gray-200 pl-6">
+                    <span class="font-bold text-gray-400 uppercase tracking-wider text-[10px]">Type</span>
+                    <span class="font-bold text-gray-800 text-xs">${prop["Property Type"] || "N/A"}</span>
+                </div>
+                <div class="flex items-center gap-2 ml-auto bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 shadow-sm">
+                    <span class="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Target Reserve</span>
+                    <span class="font-black text-indigo-700 text-sm">${formattedReserve}</span>
                 </div>
             `;
+
+            let rosterHtml = ''; let synData = []; try { synData = JSON.parse(prop["Syndicate Data"] || "[]"); } catch(e) {}
+            if (synData.length === 0) { rosterHtml = `<div class="text-center p-8 bg-gray-50 border border-dashed border-gray-300 rounded-lg text-gray-400 text-xs italic" id="empty-roster-msg">No offers or syndicates created yet. Click a button above to start tracking.</div>`; } 
+            else {
+                synData.forEach(deal => {
+                    if (deal.type === 'solo') rosterHtml += createSoloHtml(deal.name, deal.status, '', false);
+                    else if (deal.type === 'partnership') rosterHtml += createPartnershipHtml(deal.name, deal.investors, false);
+                    else rosterHtml += createSoloHtml(deal.name, deal.status, '', false);
+                });
+            }
+            document.getElementById('syndicate-roster').innerHTML = rosterHtml; updateDealRoomStats();
         }
 
-        function addInvestorRow() {
-            let msg = document.getElementById('empty-roster-msg');
-            if (msg) msg.remove();
+        // 🚨 DOUBLE CLICK BUG FIXED (Strict Event Propagation)
+        function toggleDealEdit(event, id) {
+            if(event) event.stopPropagation(); 
+            const dealRow = document.getElementById(id);
+            if (dealRow.classList.contains('is-editing')) {
+                dealRow.classList.remove('is-editing');
+            } else {
+                dealRow.classList.add('is-editing');
+                if (dealRow.getAttribute('data-type') === 'partnership') {
+                    document.getElementById('body-' + id).classList.remove('hidden');
+                    const icon = document.getElementById('icon-' + id);
+                    if(icon) icon.style.transform = 'rotate(180deg)';
+                }
+            }
+        }
+
+        function togglePartnershipExpand(e, id) {
+            if (e && e.target) {
+                const tag = e.target.tagName;
+                if (tag === 'INPUT' || tag === 'SELECT' || tag === 'BUTTON' || e.target.closest('button')) return;
+            }
+            const dealRow = document.getElementById(id);
+            if(dealRow.classList.contains('is-editing')) return; 
             
-            const container = document.getElementById('syndicate-roster');
-            container.insertAdjacentHTML('beforeend', createInvestorRowHtml());
-            updateSyndicateProgress();
+            const body = document.getElementById('body-' + id);
+            const icon = document.getElementById('icon-' + id);
+            if (body.classList.contains('hidden')) { 
+                body.classList.remove('hidden'); 
+                if(icon) icon.style.transform = 'rotate(180deg)'; 
+            } else { 
+                body.classList.add('hidden'); 
+                if(icon) icon.style.transform = 'rotate(0deg)'; 
+            }
         }
 
-        function formatSynAmount(inputEl) {
-            let val = inputEl.value;
-            if (!val || val.trim() === "") return;
-            let rawVal = parseIndianCurrency(val);
-            if (rawVal > 0) { inputEl.value = "₹" + formatIndianCurrency(rawVal); }
+        // 🚨 CLEAN TEXT BLANK DROPDOWNS & THIN ROWS
+        function createSoloHtml(name = '', status = 'Option 1', amount = '', isEdit = false) {
+            let id = 'deal-' + Math.random().toString(36).substr(2, 9);
+            let editClass = isEdit ? 'is-editing' : '';
+            let displayAmount = formatIndianCurrency(currentSyndicateReserve);
+            return `
+            <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-3 deal-row transition-all duration-300 hover:border-emerald-300 ${editClass}" data-type="solo" id="${id}">
+                <div class="flex items-center justify-between p-3">
+                    <div class="flex items-center gap-3 flex-1">
+                        <div class="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-sm shadow-inner font-bold border border-emerald-100">🦅</div>
+                        <input type="text" placeholder="Solo Investor Name" value="${name}" class="text-sm font-bold text-gray-800 w-1/3 deal-input deal-name">
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <select class="w-32 text-xs font-bold text-gray-700 deal-select deal-status" onchange="updateDealRoomStats()">
+                            <option value="Option 1" ${status === 'Option 1' ? 'selected' : ''}>Option 1</option>
+                            <option value="Option 2" ${status === 'Option 2' ? 'selected' : ''}>Option 2</option>
+                            <option value="Option 3" ${status === 'Option 3' ? 'selected' : ''}>Option 3</option>
+                            <option value="Option 4" ${status === 'Option 4' ? 'selected' : ''}>Option 4</option>
+                        </select>
+                        <div class="w-32 text-sm font-bold text-emerald-700 text-right">₹${displayAmount}</div>
+                        <input type="hidden" value="${currentSyndicateReserve}" class="deal-amount">
+                        <button type="button" onclick="toggleDealEdit(event, '${id}')" class="text-gray-400 hover:text-emerald-600 p-1 view-only-ui outline-none ml-2" title="Edit Deal">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        </button>
+                        <button type="button" onclick="toggleDealEdit(event, '${id}')" class="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-xs font-bold rounded edit-only-ui transition-colors ml-2">Done</button>
+                        <button type="button" onclick="this.closest('.deal-row').remove(); updateDealRoomStats()" class="text-red-400 hover:text-red-600 font-bold px-2 py-1 text-lg leading-none deal-delete-btn transition-colors">✕</button>
+                    </div>
+                </div>
+            </div>`;
         }
 
-        function updateSyndicateProgress() {
-            let total = 0;
-            const rows = document.querySelectorAll('.investor-row');
-            rows.forEach(row => {
-                let status = row.querySelector('.syn-status').value;
-                let amountStr = row.querySelector('.syn-amount').value;
-                if (status !== 'Backed Out') {
-                    let val = parseIndianCurrency(amountStr);
-                    if (val > 0) total += val;
+        function createPartnershipHtml(name = '', investors = [], isEdit = false) {
+            let id = 'deal-' + Math.random().toString(36).substr(2, 9);
+            let invHtml = ''; if(investors) investors.forEach(inv => { invHtml += createPartnerRowHtml(inv.name, inv.status, inv.amount); });
+            let editClass = isEdit ? 'is-editing' : '';
+            return `
+            <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-3 deal-row overflow-hidden hover:border-indigo-300 transition-colors ${editClass}" data-type="partnership" id="${id}">
+                <div class="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50" onclick="togglePartnershipExpand(event, '${id}')">
+                    <div class="flex items-center gap-3 flex-1">
+                        <div class="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-sm shadow-inner font-bold border border-indigo-100">🤝</div>
+                        <input type="text" placeholder="Partnership Name" value="${name}" class="text-sm font-bold text-gray-800 w-1/3 deal-input deal-name">
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="flex flex-col items-end">
+                            <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Total Pooled</span>
+                            <span class="text-sm font-black text-indigo-700 partnership-total">₹0</span>
+                        </div>
+                        <div class="flex flex-col items-end w-12 mr-2">
+                            <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Members</span>
+                            <span class="text-sm font-bold text-gray-700 partnership-count">0</span>
+                        </div>
+                        <button type="button" onclick="toggleDealEdit(event, '${id}')" class="text-gray-400 hover:text-indigo-600 p-1 view-only-ui outline-none" title="Edit Deal">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        </button>
+                        <button type="button" onclick="toggleDealEdit(event, '${id}')" class="px-3 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs font-bold rounded edit-only-ui transition-colors">Done</button>
+                        <button type="button" onclick="this.closest('.deal-row').remove(); updateDealRoomStats()" class="text-red-400 hover:text-red-600 font-bold px-2 py-1 text-lg leading-none deal-delete-btn transition-colors">✕</button>
+                        <div class="text-gray-400 transform transition-transform expand-icon duration-300 view-only-ui w-4 text-center" id="icon-${id}">▼</div>
+                    </div>
+                </div>
+                
+                <div class="p-3 bg-gray-50/50 border-t border-gray-100 partnership-body transition-all ${isEdit ? '' : 'hidden'}" id="body-${id}">
+                    <div class="space-y-2 partners-list">${invHtml}</div>
+                    <button type="button" class="mt-3 px-3 py-1.5 bg-white shadow-sm border border-gray-200 hover:bg-gray-100 text-indigo-700 text-[11px] font-bold rounded edit-only-ui items-center gap-1 transition-colors" onclick="addPartnerRow(this)">➕ Add Member</button>
+                </div>
+            </div>`;
+        }
+
+        function createPartnerRowHtml(name = '', status = 'Option 1', amount = '') {
+            return `
+            <div class="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg shadow-sm partner-row">
+                <div class="text-gray-300 pl-2 text-lg leading-none font-light">↳</div>
+                <input type="text" placeholder="Partner Name" value="${name}" class="flex-1 text-xs font-medium text-gray-700 deal-input partner-name">
+                <select class="w-32 text-xs font-bold text-gray-700 deal-select partner-status" onchange="updateDealRoomStats()">
+                    <option value="Option 1" ${status === 'Option 1' ? 'selected' : ''}>Option 1</option>
+                    <option value="Option 2" ${status === 'Option 2' ? 'selected' : ''}>Option 2</option>
+                    <option value="Option 3" ${status === 'Option 3' ? 'selected' : ''}>Option 3</option>
+                    <option value="Option 4" ${status === 'Option 4' ? 'selected' : ''}>Option 4</option>
+                </select>
+                <input type="text" placeholder="Amount" value="${amount}" oninput="formatSynAmount(this); updateDealRoomStats()" class="w-32 text-xs font-bold text-indigo-700 text-right deal-input partner-amount">
+                <button type="button" onclick="this.closest('.partner-row').remove(); updateDealRoomStats()" class="text-red-400 hover:text-red-600 font-bold px-2 leading-none deal-delete-btn transition-colors">✕</button>
+            </div>`;
+        }
+
+        function addSoloDeal() { let msg = document.getElementById('empty-roster-msg'); if (msg) msg.remove(); document.getElementById('syndicate-roster').insertAdjacentHTML('afterbegin', createSoloHtml('','Option 1','',true)); updateDealRoomStats(); }
+        function addPartnershipDeal() { let msg = document.getElementById('empty-roster-msg'); if (msg) msg.remove(); document.getElementById('syndicate-roster').insertAdjacentHTML('afterbegin', createPartnershipHtml('', [], true)); updateDealRoomStats(); }
+        function addPartnerRow(btn) { btn.previousElementSibling.insertAdjacentHTML('beforeend', createPartnerRowHtml()); updateDealRoomStats(); }
+        function formatSynAmount(inputEl) { let val = inputEl.value; if (!val || val.trim() === "") return; let rawVal = parseIndianCurrency(val); if (rawVal > 0) { inputEl.value = "₹" + formatIndianCurrency(rawVal); } }
+
+        function updateDealRoomStats() {
+            let numPartnerships = 0; let numSolos = 0;
+            const dealRows = document.querySelectorAll('.deal-row');
+            
+            dealRows.forEach(deal => {
+                let type = deal.getAttribute('data-type');
+                if (type === 'solo') {
+                    numSolos++;
+                } else if (type === 'partnership') {
+                    numPartnerships++;
+                    let poolTotal = 0; let activeMembers = 0;
+                    const pRows = deal.querySelectorAll('.partner-row');
+                    pRows.forEach(p => { 
+                        let pAmt = parseIndianCurrency(p.querySelector('.partner-amount').value); 
+                        if (pAmt > 0) poolTotal += pAmt; 
+                        activeMembers++; 
+                    });
+                    deal.querySelector('.partnership-total').innerText = '₹' + formatIndianCurrency(poolTotal);
+                    deal.querySelector('.partnership-count').innerText = activeMembers;
                 }
             });
 
-            let pct = 0;
-            if (total > 0 && currentSyndicateReserve > 0) { pct = (total / currentSyndicateReserve) * 100; }
-            
-            document.getElementById('syn-progress-text').innerText = `₹${formatIndianCurrency(total)} / ${currentSyndicateReserve > 0 ? '₹'+formatIndianCurrency(currentSyndicateReserve) : 'N/A'} Goal`;
-            document.getElementById('syn-progress-pct').innerText = `${Math.round(pct)}%`;
-            
-            let bar = document.getElementById('syn-progress-bar');
-            bar.style.width = `${Math.min(100, pct)}%`;
-            if (pct >= 100) { bar.className = "bg-emerald-500 h-4 rounded-full transition-all duration-500 ease-out shadow-[0_0_10px_rgba(16,185,129,0.8)]"; } 
-            else { bar.className = "bg-indigo-500 h-4 rounded-full transition-all duration-500 ease-out"; }
+            document.getElementById('syn-partnerships-count').innerText = numPartnerships;
+            document.getElementById('syn-solo-count').innerText = numSolos;
         }
 
         function saveSyndicateData() {
             if (!currentSyndicateId) return;
-            const btn = document.getElementById('save-syndicate-btn');
-            btn.innerText = "Saving Data..."; btn.disabled = true; btn.classList.add('opacity-50');
+            const btn = document.getElementById('save-syndicate-btn'); btn.innerText = "Saving Data..."; btn.disabled = true; btn.classList.add('opacity-50');
 
-            const rows = document.querySelectorAll('.investor-row');
             let dataToSave = [];
-            rows.forEach(row => {
-                let name = row.querySelector('.syn-name').value.trim();
-                let status = row.querySelector('.syn-status').value;
-                let amount = row.querySelector('.syn-amount').value.trim();
-                if (name !== "") { dataToSave.push({ name: name, status: status, amount: amount }); }
+            const dealRows = document.querySelectorAll('.deal-row');
+            dealRows.forEach(deal => {
+                let type = deal.getAttribute('data-type');
+                let name = deal.querySelector('.deal-name').value.trim();
+                
+                if (type === 'solo') {
+                    let status = deal.querySelector('.deal-status').value; 
+                    let amount = "₹" + formatIndianCurrency(currentSyndicateReserve);
+                    if (name !== "") { dataToSave.push({ type: 'solo', name: name, status: status, amount: amount }); }
+                    deal.classList.remove('is-editing');
+                } else if (type === 'partnership') {
+                    let partners = [];
+                    const pRows = deal.querySelectorAll('.partner-row');
+                    pRows.forEach(pRow => {
+                        let pName = pRow.querySelector('.partner-name').value.trim(); 
+                        let pStatus = pRow.querySelector('.partner-status').value; 
+                        let pAmount = pRow.querySelector('.partner-amount').value.trim();
+                        if (pName !== "" || pAmount !== "") { partners.push({ name: pName, status: pStatus, amount: pAmount }); }
+                    });
+                    if (name !== "" || partners.length > 0) { dataToSave.push({ type: 'partnership', name: name, investors: partners }); }
+                    deal.classList.remove('is-editing');
+                    
+                    const body = document.getElementById('body-' + deal.id);
+                    const icon = document.getElementById('icon-' + deal.id);
+                    if(body) body.classList.add('hidden');
+                    if(icon) icon.style.transform = 'rotate(0deg)';
+                }
             });
 
             let jsonStr = JSON.stringify(dataToSave);
@@ -1052,31 +1208,22 @@
             fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: "update_syndicate_details", auctionId: currentSyndicateId, syndicateData: jsonStr }) }).catch(err => console.error(err));
 
             btn.innerText = "✅ Saved!"; btn.classList.remove('opacity-50', 'bg-indigo-600', 'hover:bg-indigo-700'); btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
-            setTimeout(() => { 
-                btn.innerText = "💾 Save Deal Room"; 
-                btn.disabled = false; 
-                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700'); btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700'); 
-                applyFilters(); // Re-render underlying tables silently
-            }, 1000);
+            setTimeout(() => { btn.innerText = "💾 Save Deal Room"; btn.disabled = false; btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700'); btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700'); applyFilters(); }, 1000);
         }
 
         async function fetchAuctionData() {
             try {
                 const response = await fetch(API_URL + "?t=" + new Date().getTime());
-                globalAuctionData = await response.json();
-                window.globalAuctionData = globalAuctionData;
+                globalAuctionData = await response.json(); window.globalAuctionData = globalAuctionData;
 
                 userFavorites.clear(); userWip.clear(); userRejected.clear();
                 globalAuctionData.forEach(row => {
-                    const backendStage = String(row["Lead Stage"] || "").toUpperCase().trim();
-                    const aId = String(row["Auction ID"]);
+                    const backendStage = String(row["Lead Stage"] || "").toUpperCase().trim(); const aId = String(row["Auction ID"]);
                     if (backendStage === "FAV") userFavorites.add(aId); else if (backendStage === "WIP") userWip.add(aId); else if (backendStage === "REJ") userRejected.add(aId);
                 });
 
                 savePersistentStates(); updateKPIs(); populateDropdowns(globalAuctionData);
-                
-                if (currentSubView === 'nav-dashboard') renderOverviewCharts(); 
-                else if (currentSubView !== 'nav-visit' && currentSubView !== 'nav-draft') applyFilters();
+                if (currentSubView === 'nav-dashboard') renderOverviewCharts(); else if (currentSubView !== 'nav-visit' && currentSubView !== 'nav-draft') applyFilters();
             } catch (error) { document.getElementById("table-body").innerHTML = `<tr><td colspan="11" class="text-center text-red-500 py-4">Failed to connect to backend. Check your URL. (${error.message})</td></tr>`; }
         }
 
